@@ -29,9 +29,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { formatCurrencyFull, type Company } from "@/lib/types";
+import { formatCurrencyFull, type Company, type PayrollStub } from "@/lib/types";
 import { addMonths, endOfMonth, setDate, format } from "date-fns";
 import { ArrowRight, Banknote, Landmark, Percent, Hash } from "lucide-react";
+import { toast } from "sonner";
 
 type TaxMode = "percentage" | "fixed";
 
@@ -56,7 +57,13 @@ const payrollSchema = z.object({
 
 type PayrollFormData = z.infer<typeof payrollSchema>;
 
-export function PayrollForm({ companies = [], onAdd }: { companies?: Company[]; onAdd?: () => void }) {
+interface PayrollFormProps {
+  companies?: Company[];
+  onAdd?: () => void;
+  onSave?: (stub: Omit<PayrollStub, "id" | "company_name">) => Promise<any>;
+}
+
+export function PayrollForm({ companies = [], onAdd, onSave }: PayrollFormProps) {
   const [taxMode, setTaxMode] = useState<TaxMode>("percentage");
   const [preview, setPreview] = useState<{
     net: number;
@@ -97,8 +104,19 @@ export function PayrollForm({ companies = [], onAdd }: { companies?: Company[]; 
   }
 
   const payDate = new Date(watchDate || new Date());
-  const salaryDue = format(endOfMonth(payDate), "MMM dd, yyyy");
-  const taxesDue = format(setDate(addMonths(payDate, 1), 15), "MMM dd, yyyy");
+  // Safe date formatting
+  let salaryDue = "";
+  let taxesDue = "";
+  try {
+     salaryDue = format(endOfMonth(payDate), "yyyy-MM-dd");
+     taxesDue = format(setDate(addMonths(payDate, 1), 15), "yyyy-MM-dd");
+  } catch (e) {
+    // invalid date
+  }
+
+  const salaryDueDisplay = salaryDue ? format(new Date(salaryDue), "MMM dd, yyyy") : "-";
+  const taxesDueDisplay = taxesDue ? format(new Date(taxesDue), "MMM dd, yyyy") : "-";
+
 
   // Sync preview
   if (canPreview) {
@@ -106,16 +124,16 @@ export function PayrollForm({ companies = [], onAdd }: { companies?: Company[]; 
       !preview ||
       preview.net !== computedNet ||
       preview.taxes !== computedTaxes ||
-      preview.salaryDue !== salaryDue ||
-      preview.taxesDue !== taxesDue
+      preview.salaryDue !== salaryDueDisplay ||
+      preview.taxesDue !== taxesDueDisplay
     ) {
       setTimeout(
         () =>
           setPreview({
             net: computedNet,
             taxes: computedTaxes,
-            salaryDue,
-            taxesDue,
+            salaryDue: salaryDueDisplay,
+            taxesDue: taxesDueDisplay,
           }),
         0
       );
@@ -123,9 +141,60 @@ export function PayrollForm({ companies = [], onAdd }: { companies?: Company[]; 
   }
 
   async function onSubmit(data: PayrollFormData) {
-    console.log("Payroll submitted:", { ...data, taxMode });
-    form.reset();
-    setPreview(null);
+    if (!onSave) {
+        toast.error("Save function not implemented");
+        return;
+    }
+
+    try {
+        const grossVal = Number(data.gross_salary);
+        const taxInputVal = Number(data.tax_value);
+        
+        const finalTaxes = taxMode === "percentage" 
+            ? Math.round(grossVal * (taxInputVal / 100)) 
+            : taxInputVal;
+        
+        const finalNet = grossVal - finalTaxes;
+
+        // Recalculate dates to be sure
+        const pDate = new Date(data.pay_period_date);
+        const sDue = format(endOfMonth(pDate), "yyyy-MM-dd");
+        const tDue = format(setDate(addMonths(pDate, 1), 15), "yyyy-MM-dd");
+
+        const newStub: Omit<PayrollStub, "id" | "company_name"> = {
+            employee_name: data.employee_name,
+            employee_id: data.employee_id,
+            pay_period_date: data.pay_period_date,
+            gross_salary: grossVal,
+            net_salary: finalNet,
+            taxes_and_contributions: finalTaxes,
+            salary_paid_status: "pending",
+            taxes_paid_status: "pending",
+            salary_due_date: sDue,
+            taxes_due_date: tDue,
+            company_id: data.company_id,
+        };
+
+        const error = await onSave(newStub);
+        
+        if (error) {
+            toast.error("Failed to add payroll entry");
+            console.error(error);
+        } else {
+            toast.success("Payroll entry added successfully");
+            form.reset({
+                ...data,
+                employee_name: "", 
+                employee_id: "",
+                gross_salary: "",
+            });
+            setPreview(null);
+            if (onAdd) onAdd();
+        }
+    } catch (err) {
+        toast.error("An unexpected error occurred");
+        console.error(err);
+    }
   }
 
   return (

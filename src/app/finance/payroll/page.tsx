@@ -10,7 +10,7 @@ import { Banknote, Landmark, Users, Loader2 } from "lucide-react";
 const payrollCurrency = "ALL" as const;
 
 export default function PayrollPage() {
-  const { stubs: entries, loading, refresh, deleteStub } = usePayroll();
+  const { stubs: entries, loading, refresh, addStub, deleteStub } = usePayroll();
   const { companies } = useCompanies();
 
   if (loading) {
@@ -91,7 +91,7 @@ export default function PayrollPage() {
         ))}
       </div>
 
-      <PayrollForm companies={companies} onAdd={refresh} />
+      <PayrollForm companies={companies} onAdd={refresh} onSave={addStub} />
 
       <Card>
         <CardHeader>
