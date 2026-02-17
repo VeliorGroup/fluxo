@@ -194,9 +194,6 @@ export default function HubPage() {
         <header className="border-b border-border/50 backdrop-blur-xl bg-background/80 sticky top-0 z-10">
           <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 shadow-lg shadow-blue-500/20">
-                <Waves className="h-4.5 w-4.5 text-white" />
-              </div>
               <span className="text-xl font-bold tracking-tight">Fluxo</span>
             </div>
             <div className="flex items-center gap-3">
