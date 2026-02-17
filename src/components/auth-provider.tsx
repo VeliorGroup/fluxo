@@ -9,42 +9,49 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 
 type AuthContextType = {
   isAuthenticated: boolean;
   username: string | null;
-  login: (username: string, password: string) => boolean;
+  user: User | null;
+  login: (username: string, password: string) => Promise<string | null>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const VALID_USERNAME = "devisgjyzeli";
-const VALID_PASSWORD = "admin";
-const STORAGE_KEY = "fluxo_auth";
+// Map usernames to their Supabase emails
+function usernameToEmail(username: string): string {
+  return `${username}@fluxo.app`;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
-  // Restore session from localStorage on mount
+  const isAuthenticated = !!user;
+  const username = user?.user_metadata?.username ?? user?.email?.split("@")[0] ?? null;
+
+  // Listen for Supabase auth state changes
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed.authenticated && parsed.username) {
-          setIsAuthenticated(true);
-          setUsername(parsed.username);
-        }
-      } catch {
-        // invalid stored data
-      }
-    }
-    setHydrated(true);
+    // Get current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setHydrated(true);
+    });
+
+    // Subscribe to auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Redirect logic
@@ -58,23 +65,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [hydrated, isAuthenticated, pathname, router]);
 
-  const login = useCallback((user: string, pass: string): boolean => {
-    if (user === VALID_USERNAME && pass === VALID_PASSWORD) {
-      setIsAuthenticated(true);
-      setUsername(user);
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ authenticated: true, username: user })
-      );
-      return true;
-    }
-    return false;
-  }, []);
+  const login = useCallback(
+    async (usernameInput: string, password: string): Promise<string | null> => {
+      const email = usernameToEmail(usernameInput);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) return error.message;
+      return null; // success
+    },
+    []
+  );
 
   const logout = useCallback(() => {
-    setIsAuthenticated(false);
-    setUsername(null);
-    localStorage.removeItem(STORAGE_KEY);
+    supabase.auth.signOut();
     router.replace("/");
   }, [router]);
 
@@ -84,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, username, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, username, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

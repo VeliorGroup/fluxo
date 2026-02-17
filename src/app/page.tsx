@@ -22,11 +22,8 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    // Small delay for UX feel
-    await new Promise((r) => setTimeout(r, 400));
-
-    const ok = login(username, password);
-    if (!ok) {
+    const errorMsg = await login(username, password);
+    if (errorMsg) {
       setError("Invalid username or password");
     }
     setLoading(false);
