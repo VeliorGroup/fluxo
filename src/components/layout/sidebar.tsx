@@ -163,17 +163,15 @@ export function Sidebar({
       >
         {/* Logo + Module name */}
         <div className="flex h-16 items-center gap-3 border-b border-border px-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Waves className="h-4 w-4 text-primary-foreground" />
-          </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-lg font-semibold tracking-tight leading-tight">Fluxo</span>
+            <span className="text-xl font-bold tracking-tight text-foreground">
+              Fluxo
+            </span>
             <span className="text-[10px] font-medium text-muted-foreground truncate leading-tight">
               {moduleTitle}
             </span>
           </div>
         </div>
-
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4">
           {/* Back to Hub */}

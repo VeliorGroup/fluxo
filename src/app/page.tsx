@@ -34,9 +34,6 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-8 px-6">
         {/* Logo & Branding */}
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 shadow-lg shadow-blue-500/20">
-            <Waves className="h-7 w-7 text-white" />
-          </div>
           <h1 className="mt-5 font-bold tracking-tight flex flex-col items-center gap-1">
             <span className="text-2xl">Fluxo</span>
             <span className="text-lg text-muted-foreground font-medium">Business Management Platform</span>
