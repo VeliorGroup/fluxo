@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ArrowLeftRight,
   ArrowRightLeft,
+  ArrowLeft,
   Users,
   Wallet,
   Menu,
@@ -18,18 +19,106 @@ import {
   TrendingDown,
   TrendingUp,
   LogOut,
+  Banknote,
+  ClipboardList,
+  PlusCircle,
+  Building2,
+  CalendarDays,
+  Search,
+  Target,
+  FolderKanban,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import type { ExchangeRateData } from "@/lib/exchange-rate";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/accounts", label: "Accounts", icon: Wallet },
-  { href: "/exchange-rates", label: "Exchange Rates", icon: ArrowRightLeft },
-  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { href: "/payroll", label: "Payroll", icon: Users },
+// ── Module definitions ─────────────────────────────
+type NavItem = { href: string; label: string; icon: LucideIcon };
+
+type ModuleDef = {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  gradient: string;
+  routes: string[];   // pathnames that belong to this module
+  navItems: NavItem[];
+};
+
+const modules: ModuleDef[] = [
+  {
+    id: "expo",
+    title: "Expo & Events",
+    icon: CalendarDays,
+    gradient: "from-teal-500 to-cyan-600",
+    routes: ["/expo"],
+    navItems: [],
+  },
+  {
+    id: "leads",
+    title: "Leads",
+    icon: Search,
+    gradient: "from-amber-500 to-yellow-600",
+    routes: ["/leads"],
+    navItems: [],
+  },
+  {
+    id: "accounts-crm",
+    title: "Accounts",
+    icon: Wallet,
+    gradient: "from-cyan-500 to-blue-600",
+    routes: ["/accounts-crm"],
+    navItems: [],
+  },
+  {
+    id: "opportunities",
+    title: "Opportunities",
+    icon: Target,
+    gradient: "from-green-500 to-emerald-600",
+    routes: ["/opportunities"],
+    navItems: [],
+  },
+  {
+    id: "projects",
+    title: "Projects",
+    icon: FolderKanban,
+    gradient: "from-indigo-500 to-blue-600",
+    routes: ["/projects"],
+    navItems: [],
+  },
+  {
+    id: "finance",
+    title: "Finance",
+    icon: Waves,
+    gradient: "from-blue-500 to-violet-600",
+    routes: ["/finance/dashboard", "/finance/accounts", "/finance/exchange-rates", "/finance/transactions", "/finance/payroll"],
+    navItems: [
+      { href: "/finance/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/finance/accounts", label: "Accounts", icon: Wallet },
+      { href: "/finance/transactions", label: "Transactions", icon: ArrowLeftRight },
+      { href: "/finance/exchange-rates", label: "Exchange Rates", icon: ArrowRightLeft },
+      { href: "/finance/payroll", label: "Payroll", icon: ClipboardList },
+    ],
+  },
+  {
+    id: "organization",
+    title: "Organization",
+    icon: Building2,
+    gradient: "from-purple-500 to-pink-600",
+    routes: ["/organization"],
+    navItems: [
+      { href: "/organization/companies", label: "Companies", icon: Building2 },
+      { href: "/organization/departments", label: "Departments", icon: ClipboardList },
+      { href: "/organization/roles", label: "Roles", icon: Users },
+      { href: "/organization/org-chart", label: "Org Chart", icon: ArrowLeftRight },
+      { href: "/organization/people", label: "People", icon: Users },
+    ],
+  },
 ];
+
+function getActiveModule(pathname: string): ModuleDef | undefined {
+  return modules.find((m) => m.routes.some((r) => pathname.startsWith(r)));
+}
 
 export function Sidebar({
   exchangeRate,
@@ -39,6 +128,10 @@ export function Sidebar({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const { logout, username } = useAuth();
+
+  const activeModule = getActiveModule(pathname);
+  const navItems = activeModule?.navItems ?? [];
+  const moduleTitle = activeModule?.title ?? "Fluxo";
 
   return (
     <>
@@ -68,16 +161,33 @@ export function Sidebar({
           collapsed ? "-translate-x-full" : "translate-x-0"
         )}
       >
-        {/* Logo */}
+        {/* Logo + Module name */}
         <div className="flex h-16 items-center gap-3 border-b border-border px-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Waves className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">Fluxo</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-lg font-semibold tracking-tight leading-tight">Fluxo</span>
+            <span className="text-[10px] font-medium text-muted-foreground truncate leading-tight">
+              {moduleTitle}
+            </span>
+          </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4">
+          {/* Back to Hub */}
+          <Link
+            href="/hub"
+            onClick={() => setCollapsed(true)}
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200 mb-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Hub
+          </Link>
+          <div className="border-b border-border mb-2" />
+
+          {/* Module-specific nav items */}
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (

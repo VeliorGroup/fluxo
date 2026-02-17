@@ -37,12 +37,13 @@ export default function LoginPage() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 shadow-lg shadow-blue-500/20">
             <Waves className="h-7 w-7 text-white" />
           </div>
-          <h1 className="mt-5 text-2xl font-bold tracking-tight">
-            Welcome to Fluxo
+          <h1 className="mt-5 font-bold tracking-tight flex flex-col items-center gap-1">
+            <span className="text-2xl">Fluxo</span>
+            <span className="text-lg text-muted-foreground font-medium">Business Management Platform</span>
           </h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Sign in to access your cash flow dashboard
-          </p>
+          {/* <p className="mt-1.5 text-sm text-muted-foreground">
+            Sign in to your business management platform
+          </p> */}
         </div>
 
         {/* Login Form */}
@@ -122,10 +123,7 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground">
-          Fluxo — Cash Flow & Runway Manager
-        </p>
+
       </div>
     </div>
   );

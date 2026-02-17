@@ -7,7 +7,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import type { Currency } from "@/lib/dummy-data";
+import type { Currency } from "@/lib/types";
 
 type DisplayCurrency = Currency; // "EUR" | "ALL"
 

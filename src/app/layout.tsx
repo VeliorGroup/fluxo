@@ -7,6 +7,7 @@ import { CurrencyProvider } from "@/components/currency-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/layout/app-shell";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -41,6 +42,7 @@ export default async function RootLayout({
                 <AppShell exchangeRate={exchangeRate}>
                   {children}
                 </AppShell>
+                <Toaster />
               </TooltipProvider>
             </CurrencyProvider>
           </AuthProvider>
