@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Nova_Square } from "next/font/google";
+import { Chakra_Petch } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-provider";
@@ -8,10 +8,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/layout/app-shell";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 
-const novaSquare = Nova_Square({
-  variable: "--font-nova-square",
+const chakraPetch = Chakra_Petch({
+  variable: "--font-chakra-petch",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -29,7 +29,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${novaSquare.variable} font-sans antialiased`}>
+      <body className={`${chakraPetch.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
