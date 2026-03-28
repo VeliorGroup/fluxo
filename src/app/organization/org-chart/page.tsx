@@ -17,16 +17,16 @@ export default function OrgChartPage() {
 
   return (
     <div className="space-y-6 h-full flex flex-col">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Organization Chart</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Organization Chart</h1>
           <p className="mt-1 text-muted-foreground">
             Visual representation of your company structure.
           </p>
         </div>
       </div>
 
-      <div className="flex-1 border rounded-lg p-6 bg-muted/20">
+      <div className="flex-1 border rounded-lg p-3 sm:p-6 bg-muted/20 overflow-x-auto">
         <Tabs defaultValue="departments" className="w-full flex flex-col h-full">
           <div className="flex justify-center mb-6">
             <TabsList>

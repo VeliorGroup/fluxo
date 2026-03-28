@@ -217,7 +217,8 @@ export function DataTable<TData extends { id?: string }, TValue>({
 
       {/* Table */}
       <div className="rounded-xl border border-border overflow-hidden">
-        <Table>
+        <div className="overflow-x-auto">
+        <Table className="min-w-[600px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="bg-muted/30 hover:bg-muted/30">
@@ -263,11 +264,12 @@ export function DataTable<TData extends { id?: string }, TValue>({
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Pagination */}
       {table.getPageCount() > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             {table.getFilteredRowModel().rows.length} result(s)
             {selectedRows.length > 0 && ` — ${selectedRows.length} selected`}

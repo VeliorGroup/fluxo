@@ -177,14 +177,14 @@ export default function AccountsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Accounts</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Accounts</h1>
           <p className="mt-1 text-muted-foreground">
             Manage EUR and ALL accounts for each entity.
           </p>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="gap-2">
+        <Button onClick={() => setShowAdd(true)} className="gap-2 w-fit">
           <Plus className="h-4 w-4" />
           Add Account
         </Button>
@@ -316,7 +316,7 @@ export default function AccountsPage() {
                 <Card key={acct.id} className="group relative">
                   {/* Action buttons */}
                   {!isEditing && (
-                    <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute right-3 top-3 flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon"

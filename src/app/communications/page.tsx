@@ -41,9 +41,9 @@ export default function CommunicationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Activity Feed</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Activity Feed</h1>
           <p className="text-muted-foreground">Track all communications and interactions</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -65,9 +65,9 @@ export default function CommunicationsPage() {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent>

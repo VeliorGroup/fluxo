@@ -53,9 +53,9 @@ export default function AccountsCRMPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Accounts</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Accounts</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage client relationships and contacts
           </p>

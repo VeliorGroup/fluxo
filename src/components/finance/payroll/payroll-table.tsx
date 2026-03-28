@@ -43,8 +43,8 @@ export function PayrollTable({
 
   return (
     <>
-      <div className="rounded-lg border border-border">
-        <Table>
+      <div className="rounded-lg border border-border overflow-x-auto">
+        <Table className="min-w-[700px]">
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs font-semibold uppercase tracking-wider">Employee</TableHead>

@@ -24,7 +24,7 @@ export default function CompaniesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Companies</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Companies</h1>
           <p className="text-muted-foreground">
             Manage your legal entities and their details.
           </p>

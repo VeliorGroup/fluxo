@@ -62,8 +62,8 @@ export function RolesTable({ data }: RolesTableProps) {
 
   return (
     <>
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table className="min-w-[500px]">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>

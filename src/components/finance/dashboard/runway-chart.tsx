@@ -32,7 +32,7 @@ export function RunwayChart({ transactions, exchangeRate = 96, burnRate = 0 }: {
   return (
     <Card className="rounded-xl border-0 bg-white shadow-sm dark:bg-card dark:border dark:border-border">
       <CardContent className="p-6">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-base font-semibold text-foreground">Runway Forecast</h3>
             <p className="text-xs text-muted-foreground/70 mt-1">

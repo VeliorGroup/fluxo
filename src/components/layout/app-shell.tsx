@@ -34,8 +34,8 @@ export function AppShell({
       <main className="flex-1 transition-all duration-300 max-md:ml-0 md:ml-60">
         {/* Top bar */}
         <div className="sticky top-0 z-30 bg-background border-b border-border">
-          <div className="px-6 lg:px-8">
-            <div className="flex h-14 items-center gap-4 max-md:pl-14">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex h-14 items-center gap-2 sm:gap-4 max-md:pl-12">
               {/* Search */}
               <button
                 onClick={() => setCmdOpen(true)}
@@ -77,12 +77,12 @@ export function AppShell({
         </div>
 
         {/* Breadcrumb */}
-        <div className="px-6 lg:px-8 py-2 bg-background/50">
+        <div className="px-4 sm:px-6 lg:px-8 py-2 bg-background/50">
           <BreadcrumbNav />
         </div>
 
         {/* Content */}
-        <div className="px-6 lg:px-8 py-6">
+        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           {children}
         </div>
       </main>

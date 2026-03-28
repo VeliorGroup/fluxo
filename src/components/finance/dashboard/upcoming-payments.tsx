@@ -62,20 +62,20 @@ export function UpcomingPayments({
             return (
               <div
                 key={p.id}
-                className={`flex items-center justify-between rounded-xl border-l-4 bg-muted/20 px-5 py-4 transition-colors hover:bg-muted/30 ${cfg.accent}`}
+                className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl border-l-4 bg-muted/20 px-4 py-3 sm:px-5 sm:py-4 transition-colors hover:bg-muted/30 ${cfg.accent}`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-muted/40`}>
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/40`}>
                     <Icon className={`h-4 w-4 ${cfg.iconColor}`} />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{p.description}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{p.description}</p>
                     <p className="text-xs text-muted-foreground/70">
                       {categoryLabels[p.category]} -- Due {p.due_date}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pl-11 sm:pl-0 shrink-0">
                   <span className="text-sm font-bold text-foreground">
                     {formatDisplay(p.amount, p.currency)}
                   </span>
