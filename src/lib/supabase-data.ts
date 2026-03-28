@@ -92,7 +92,7 @@ export function useAccounts() {
     if (!user) return;
     setLoading(true);
     const { data } = await supabase
-      .from("accounts")
+      .from("financial_accounts")
       .select("*")
       .eq("user_id", user.id)
       .order("name");
@@ -108,7 +108,7 @@ export function useAccounts() {
   const addAccount = useCallback(
     async (account: Omit<Account, "id" | "user_id" | "created_at" | "updated_at" | "is_default">) => {
       if (!user) return;
-      const { error } = await supabase.from("accounts").insert({
+      const { error } = await supabase.from("financial_accounts").insert({
         user_id: user.id,
         company_id: account.company_id,
         name: account.name,
@@ -124,7 +124,7 @@ export function useAccounts() {
   const updateAccount = useCallback(
     async (id: string, updates: Partial<Account>) => {
       const { error } = await supabase
-        .from("accounts")
+        .from("financial_accounts")
         .update(updates)
         .eq("id", id);
       if (!error) await refresh();
@@ -135,7 +135,7 @@ export function useAccounts() {
 
   const deleteAccount = useCallback(
     async (id: string) => {
-      const { error } = await supabase.from("accounts").delete().eq("id", id);
+      const { error } = await supabase.from("financial_accounts").delete().eq("id", id);
       if (!error) await refresh();
       return error;
     },
@@ -361,7 +361,7 @@ export function useTransactions() {
     setLoading(true);
     const { data } = await supabase
       .from("transactions")
-      .select("*, companies(name), accounts(name)")
+      .select("*, companies(name)")
       .eq("user_id", user.id)
       .order("date", { ascending: false });
 
@@ -495,45 +495,50 @@ export function usePayroll() {
 // ═══════════════════════════════════════════════════════════════
 // KPI Helpers (computed from transactions)
 // ═══════════════════════════════════════════════════════════════
-export function computeKPIs(transactions: Transaction[]) {
+export function computeKPIs(transactions: Transaction[], exchangeRate: number = 96) {
+  const toEUR = (amount: number, currency?: string) =>
+    currency === "ALL" ? amount / exchangeRate : amount;
+
   const paid = transactions.filter((t) => t.status === "paid");
+  const real = paid.filter((t) => t.category !== "transfer");
 
-  // Liquidity
-  const liquidity: LiquiditySummary = {
-    eur: paid.reduce((sum, t) => sum + t.amount, 0), // all in single currency since DB doesn't have currency on TX
-    all: 0,
-  };
-
-  // Since DB transactions don't have currency field, we compute from company
-  // For now, aggregate all amounts as single currency
-  const totalBalance = paid.reduce((sum, t) => sum + t.amount, 0);
-  liquidity.eur = totalBalance;
-  liquidity.all = totalBalance;
-
-  // Monthly burn rate (average of last 3 months expenses)
-  const threeMonthsAgo = format(subMonths(new Date(), 3), "yyyy-MM-dd");
-  const recentExpenses = paid.filter(
-    (t) => t.type === "expense" && t.date >= threeMonthsAgo
-  );
-  const totalExpenses = recentExpenses.reduce(
-    (sum, t) => sum + Math.abs(t.amount),
+  // LIQUIDITY = actual bank balance (ALL transactions including transfers)
+  // This is the real money in the accounts right now
+  const liquidity = paid.reduce(
+    (sum, t) => sum + toEUR(t.amount, t.currency),
     0
   );
-  const burnRate = Math.round(totalExpenses / 3);
 
-  // Pending invoices
-  const pending = transactions.filter(
+  // BURN RATE = total real expenses from Jan 1 this year to now, divided by months elapsed
+  const yearStart = format(new Date(new Date().getFullYear(), 0, 1), "yyyy-MM-dd");
+  const now = new Date();
+  const monthsThisYear = Math.max(1, now.getMonth() + (now.getDate() > 15 ? 1 : 0)) || 1;
+
+  const ytdExpenses = real.filter(
+    (t) => t.type === "expense" && t.date >= yearStart
+  );
+  const totalExpensesEUR = ytdExpenses.reduce(
+    (sum, t) => sum + Math.abs(toEUR(t.amount, t.currency)),
+    0
+  );
+  const burnRate = Math.round(totalExpensesEUR / monthsThisYear);
+
+  // PENDING INVOICES = income that hasn't been paid yet
+  const pending = real.filter(
     (t) => t.type === "income" && (t.status === "pending" || t.status === "forecasted")
   );
-  const pendingTotal = pending.reduce((sum, t) => sum + t.amount, 0);
+  const pendingTotal = pending.reduce(
+    (sum, t) => sum + toEUR(t.amount, t.currency),
+    0
+  );
 
-  // Runway
-  const runway = burnRate > 0 ? Math.round((totalBalance / burnRate) * 10) / 10 : Infinity;
+  // RUNWAY = months until cash runs out at current burn rate
+  const runway = burnRate > 0 ? Math.round((liquidity / burnRate) * 10) / 10 : Infinity;
 
   return {
-    liquidity: totalBalance,
+    liquidity: Math.round(liquidity * 100) / 100,
     burnRate,
-    pendingInvoices: { count: pending.length, total: pendingTotal },
+    pendingInvoices: { count: pending.length, total: Math.round(pendingTotal * 100) / 100 },
     runway,
   };
 }
@@ -547,6 +552,7 @@ export function computeUpcomingPayments(transactions: Transaction[]): UpcomingPa
     .filter(
       (t) =>
         t.type === "expense" &&
+        t.category !== "transfer" &&
         (t.status === "pending" || t.status === "forecasted") &&
         t.date >= format(today, "yyyy-MM-dd")
     )
@@ -563,7 +569,7 @@ export function computeUpcomingPayments(transactions: Transaction[]): UpcomingPa
       id: t.id,
       description: t.description,
       amount: Math.abs(t.amount),
-      currency: "ALL" as Currency, // default currency
+      currency: "EUR" as Currency, // default currency
       due_date: t.date,
       category: t.category,
       severity,
@@ -574,39 +580,39 @@ export function computeUpcomingPayments(transactions: Transaction[]): UpcomingPa
 // ═══════════════════════════════════════════════════════════════
 // Runway Chart Data (derived from transactions)
 // ═══════════════════════════════════════════════════════════════
-export function computeRunwayData(transactions: Transaction[]): RunwayDataPoint[] {
+export function computeRunwayData(transactions: Transaction[], exchangeRate: number = 96, burnRate: number = 0): RunwayDataPoint[] {
+  // Use ALL transactions for balance (including transfers — this is the real bank balance)
+  const toEUR = (amount: number, currency?: string) =>
+    currency === "ALL" ? amount / exchangeRate : amount;
   const today = new Date();
+  const paid = transactions.filter((t) => t.status === "paid");
   const data: RunwayDataPoint[] = [];
 
-  // Compute cumulative balance over the last 6 months
+  // Monthly balance snapshots — last 6 months
   for (let i = 5; i >= 0; i--) {
-    const monthDate = subMonths(today, i);
-    const monthStr = format(monthDate, "yyyy-MM");
-    const txsUpTo = transactions.filter(
-      (t) => t.status === "paid" && t.date <= format(monthDate, "yyyy-MM-dd")
-    );
-    const balance = txsUpTo.reduce((sum, t) => sum + t.amount, 0);
+    const monthEnd = subMonths(today, i);
+    const cutoff = format(monthEnd, "yyyy-MM-dd");
+    const balance = paid
+      .filter((t) => t.date <= cutoff)
+      .reduce((sum, t) => sum + toEUR(t.amount, t.currency), 0);
     data.push({
-      month: format(monthDate, "MMM yyyy"),
-      actual: balance,
+      month: format(monthEnd, "MMM yyyy"),
+      actual: Math.round(balance),
       projected: null,
     });
   }
 
-  // Projected: simple linear projection from current balance + avg monthly net
-  if (data.length >= 2) {
+  // Projected: decrease by burn rate each month
+  if (data.length > 0) {
     const lastBalance = data[data.length - 1].actual ?? 0;
-    const prevBalance = data[data.length - 3]?.actual ?? data[data.length - 2].actual ?? 0;
-    const avgChange = (lastBalance - prevBalance) / 3;
-
-    // Bridge point
     data[data.length - 1].projected = lastBalance;
 
     for (let i = 1; i <= 6; i++) {
+      const projected = Math.max(0, lastBalance - burnRate * i);
       data.push({
         month: format(addMonths(today, i), "MMM yyyy"),
         actual: null,
-        projected: Math.round(lastBalance + avgChange * i),
+        projected: Math.round(projected),
       });
     }
   }
@@ -625,22 +631,20 @@ export function computeAccountsWithBalances(
     const accountTxs = transactions.filter(
       (t) => t.account_id === account.id && t.status === "paid"
     );
-    const inflows = accountTxs
-      .filter((t) => t.amount > 0)
-      .reduce((s, t) => s + t.amount, 0);
-    const outflows = accountTxs
-      .filter((t) => t.amount < 0)
-      .reduce((s, t) => s + t.amount, 0);
 
-    // If account has an initial balance field in DB, use it. 
-    // For now we treat DB balance as initial? 
-    // The type says balance?: number. In DB it's numeric.
-    // Let's assume account.balance is from DB (initial).
+    // Balance uses ALL transactions (including transfers) — this is the real bank balance
+    const allInflows = accountTxs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+    const allOutflows = accountTxs.filter((t) => t.amount < 0).reduce((s, t) => s + t.amount, 0);
     const initial = account.balance || 0;
+
+    // Inflows/outflows displayed exclude transfers — shows real business activity
+    const realTxs = accountTxs.filter((t) => t.category !== "transfer");
+    const inflows = realTxs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+    const outflows = realTxs.filter((t) => t.amount < 0).reduce((s, t) => s + t.amount, 0);
 
     return {
       ...account,
-      balance: initial + inflows + outflows,
+      balance: initial + allInflows + allOutflows,
       inflows,
       outflows,
     };

@@ -17,9 +17,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash, Shield } from "lucide-react";
 import { Role } from "@/lib/types";
-import { useRoles, useDepartments } from "@/lib/supabase-data";
+import { useDeleteRole, useDepartments, useRoles } from "@/lib/supabase-queries";
 import { useState } from "react";
 import {
   Dialog,
@@ -29,34 +29,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RoleForm } from "./role-form";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface RolesTableProps {
   data: Role[];
-  loading: boolean;
 }
 
-export function RolesTable({ data, loading }: RolesTableProps) {
-  const { deleteRole } = useRoles();
-  const { departments } = useDepartments();
+export function RolesTable({ data }: RolesTableProps) {
+  const deleteRole = useDeleteRole();
+  const { data: departments = [] } = useDepartments();
+  const { data: allRoles = [] } = useRoles();
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [deletingRole, setDeletingRole] = useState<Role | null>(null);
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (deletingRole) {
-      await deleteRole(deletingRole.id);
-      toast.success("Role deleted successfully");
-      setDeletingRole(null);
+      deleteRole.mutate(deletingRole.id, {
+        onSettled: () => setDeletingRole(null),
+      });
     }
   };
 
@@ -66,12 +57,8 @@ export function RolesTable({ data, loading }: RolesTableProps) {
 
   const getParentName = (parentId?: string) => {
     if (!parentId) return "-";
-    return data.find((r) => r.id === parentId)?.name || "Unknown";
+    return allRoles.find((r) => r.id === parentId)?.name || "Unknown";
   };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <>
@@ -90,7 +77,11 @@ export function RolesTable({ data, loading }: RolesTableProps) {
             {data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                  No roles found.
+                  <EmptyState
+                    icon={Shield}
+                    title="No roles found"
+                    description="Add your first role to get started."
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -156,26 +147,16 @@ export function RolesTable({ data, loading }: RolesTableProps) {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <ConfirmDialog
         open={!!deletingRole}
         onOpenChange={(open) => !open && setDeletingRole(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              role and remove it from our servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Are you sure?"
+        description="This action cannot be undone. This will permanently delete the role and remove it from our servers."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        loading={deleteRole.isPending}
+      />
     </>
   );
 }

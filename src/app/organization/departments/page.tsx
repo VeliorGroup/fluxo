@@ -1,6 +1,6 @@
 "use client";
 
-import { useDepartments } from "@/lib/supabase-data";
+import { useDepartments } from "@/lib/supabase-queries";
 import { DepartmentsTable } from "@/components/organization/departments/departments-table";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
@@ -14,9 +14,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { DepartmentForm } from "@/components/organization/departments/department-form";
+import { TableSkeleton } from "@/components/ui/skeleton-loaders";
 
 export default function DepartmentsPage() {
-  const { departments, loading } = useDepartments();
+  const { data: departments = [], isLoading } = useDepartments();
   const [open, setOpen] = useState(false);
 
   return (
@@ -46,7 +47,11 @@ export default function DepartmentsPage() {
           </DialogContent>
         </Dialog>
       </div>
-      <DepartmentsTable data={departments} loading={loading} />
+      {isLoading ? (
+        <TableSkeleton rows={5} columns={4} />
+      ) : (
+        <DepartmentsTable data={departments} />
+      )}
     </div>
   );
 }

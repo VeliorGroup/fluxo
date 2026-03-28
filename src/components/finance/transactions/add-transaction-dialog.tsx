@@ -33,8 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
 import { categoryLabels, type TransactionCategory } from "@/lib/types";
-import { useTransactions, useAccounts, useCompanies } from "@/lib/supabase-data";
-import { toast } from "sonner";
+import { useAccounts, useCompanies, useAddTransaction } from "@/lib/supabase-queries";
 
 const transactionSchema = z.object({
   amount: z
@@ -66,10 +65,9 @@ type TransactionFormData = z.infer<typeof transactionSchema>;
 
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
-  const { addTransaction } = useTransactions();
-  const { accounts, loading: accLoading } = useAccounts();
-  const { companies, loading: compLoading } = useCompanies();
-  const [loading, setLoading] = useState(false);
+  const addTransaction = useAddTransaction();
+  const { data: accounts = [], isLoading: accLoading } = useAccounts();
+  const { data: companies = [], isLoading: compLoading } = useCompanies();
 
   const form = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
@@ -100,25 +98,21 @@ export function AddTransactionDialog() {
   }, [selectedAccountId, accounts, form]);
 
   async function onSubmit(data: TransactionFormData) {
-    setLoading(true);
     try {
       const amount = Number(data.amount);
       const finalAmount = data.type === "expense" ? -Math.abs(amount) : Math.abs(amount);
-      
-      await addTransaction({
+
+      await addTransaction.mutateAsync({
         ...data,
         amount: finalAmount,
         category: data.category as TransactionCategory,
       });
-      
-      toast.success("Transaction created successfully");
+
       form.reset();
       setOpen(false);
     } catch (error) {
-      toast.error("Failed to create transaction");
+      // Error toast is handled by the mutation hook
       console.error(error);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -229,7 +223,7 @@ export function AddTransactionDialog() {
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select count" />
+                        <SelectValue placeholder="Select account" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -255,10 +249,8 @@ export function AddTransactionDialog() {
               )}
             />
 
-            {/* Hidden fields for validity or manual overrides if needed. 
-                For now we rely on useEffect to set them, but we can display them read-only if we want.
-                Let's display Currency as read-only. */}
-            
+            {/* Hidden fields for currency and company_id set via useEffect */}
+
              <FormField
                 control={form.control}
                 name="currency"
@@ -353,7 +345,7 @@ export function AddTransactionDialog() {
                   </FormItem>
                 )}
               />
-              
+
               {/* Recurrence */}
               <FormField
                 control={form.control}
@@ -409,8 +401,8 @@ export function AddTransactionDialog() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={addTransaction.isPending}>
+                {addTransaction.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Transaction
               </Button>
             </div>

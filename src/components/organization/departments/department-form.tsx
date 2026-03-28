@@ -20,11 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useDepartments, useCompanies } from "@/lib/supabase-data";
+import { useDepartments, useCompanies, useAddDepartment, useUpdateDepartment } from "@/lib/supabase-queries";
 import { Department } from "@/lib/types";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -42,9 +40,11 @@ interface DepartmentFormProps {
 }
 
 export function DepartmentForm({ department, onSuccess }: DepartmentFormProps) {
-  const { addDepartment, updateDepartment, departments } = useDepartments();
-  const { companies } = useCompanies();
-  const [loading, setLoading] = useState(false);
+  const addDepartment = useAddDepartment();
+  const updateDepartment = useUpdateDepartment();
+  const { data: departments = [] } = useDepartments();
+  const { data: companies = [] } = useCompanies();
+  const isPending = addDepartment.isPending || updateDepartment.isPending;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -56,36 +56,31 @@ export function DepartmentForm({ department, onSuccess }: DepartmentFormProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setLoading(true);
     const parentId = values.parent_id === "none" ? null : values.parent_id;
-    
+
     try {
       if (department) {
-        await updateDepartment(department.id, {
+        await updateDepartment.mutateAsync({
+          id: department.id,
           name: values.name,
           company_id: values.company_id,
           parent_id: parentId as string | undefined,
         });
-        toast.success("Department updated successfully");
       } else {
-        await addDepartment({
+        await addDepartment.mutateAsync({
           name: values.name,
           company_id: values.company_id,
           parent_id: parentId as string | undefined,
         });
-        toast.success("Department added successfully");
       }
       onSuccess?.();
-    } catch (error) {
-      toast.error("Something went wrong");
-      console.error(error);
-    } finally {
-      setLoading(false);
+    } catch {
+      // error toast is automatic
     }
   }
 
   // Filter departments to avoid circular dependency (can't be parent of itself)
-  const availableParents = departments.filter(d => 
+  const availableParents = departments.filter(d =>
     d.company_id === form.watch("company_id") && // Must be in same company
     d.id !== department?.id
   );
@@ -156,8 +151,8 @@ export function DepartmentForm({ department, onSuccess }: DepartmentFormProps) {
           )}
         />
         <div className="flex justify-end pt-4">
-          <Button type="submit" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {department ? "Update" : "Create"}
           </Button>
         </div>

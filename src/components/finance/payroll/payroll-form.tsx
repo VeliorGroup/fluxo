@@ -31,8 +31,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { formatCurrencyFull, type Company, type PayrollStub } from "@/lib/types";
 import { addMonths, endOfMonth, setDate, format } from "date-fns";
-import { ArrowRight, Banknote, Landmark, Percent, Hash } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowRight, Banknote, Landmark, Percent, Hash, Loader2 } from "lucide-react";
+import { useAddPayrollStub } from "@/lib/supabase-queries";
 
 type TaxMode = "percentage" | "fixed";
 
@@ -59,11 +59,9 @@ type PayrollFormData = z.infer<typeof payrollSchema>;
 
 interface PayrollFormProps {
   companies?: Company[];
-  onAdd?: () => void;
-  onSave?: (stub: Omit<PayrollStub, "id" | "company_name">) => Promise<any>;
 }
 
-export function PayrollForm({ companies = [], onAdd, onSave }: PayrollFormProps) {
+export function PayrollForm({ companies = [] }: PayrollFormProps) {
   const [taxMode, setTaxMode] = useState<TaxMode>("percentage");
   const [preview, setPreview] = useState<{
     net: number;
@@ -71,6 +69,8 @@ export function PayrollForm({ companies = [], onAdd, onSave }: PayrollFormProps)
     salaryDue: string;
     taxesDue: string;
   } | null>(null);
+
+  const addPayrollStub = useAddPayrollStub();
 
   const form = useForm<PayrollFormData>({
     resolver: zodResolver(payrollSchema),
@@ -141,59 +141,47 @@ export function PayrollForm({ companies = [], onAdd, onSave }: PayrollFormProps)
   }
 
   async function onSubmit(data: PayrollFormData) {
-    if (!onSave) {
-        toast.error("Save function not implemented");
-        return;
-    }
-
     try {
-        const grossVal = Number(data.gross_salary);
-        const taxInputVal = Number(data.tax_value);
-        
-        const finalTaxes = taxMode === "percentage" 
-            ? Math.round(grossVal * (taxInputVal / 100)) 
-            : taxInputVal;
-        
-        const finalNet = grossVal - finalTaxes;
+      const grossVal = Number(data.gross_salary);
+      const taxInputVal = Number(data.tax_value);
 
-        // Recalculate dates to be sure
-        const pDate = new Date(data.pay_period_date);
-        const sDue = format(endOfMonth(pDate), "yyyy-MM-dd");
-        const tDue = format(setDate(addMonths(pDate, 1), 15), "yyyy-MM-dd");
+      const finalTaxes = taxMode === "percentage"
+        ? Math.round(grossVal * (taxInputVal / 100))
+        : taxInputVal;
 
-        const newStub: Omit<PayrollStub, "id" | "company_name"> = {
-            employee_name: data.employee_name,
-            employee_id: data.employee_id,
-            pay_period_date: data.pay_period_date,
-            gross_salary: grossVal,
-            net_salary: finalNet,
-            taxes_and_contributions: finalTaxes,
-            salary_paid_status: "pending",
-            taxes_paid_status: "pending",
-            salary_due_date: sDue,
-            taxes_due_date: tDue,
-            company_id: data.company_id,
-        };
+      const finalNet = grossVal - finalTaxes;
 
-        const error = await onSave(newStub);
-        
-        if (error) {
-            toast.error("Failed to add payroll entry");
-            console.error(error);
-        } else {
-            toast.success("Payroll entry added successfully");
-            form.reset({
-                ...data,
-                employee_name: "", 
-                employee_id: "",
-                gross_salary: "",
-            });
-            setPreview(null);
-            if (onAdd) onAdd();
-        }
+      // Recalculate dates to be sure
+      const pDate = new Date(data.pay_period_date);
+      const sDue = format(endOfMonth(pDate), "yyyy-MM-dd");
+      const tDue = format(setDate(addMonths(pDate, 1), 15), "yyyy-MM-dd");
+
+      const newStub: Omit<PayrollStub, "id" | "company_name"> = {
+        employee_name: data.employee_name,
+        employee_id: data.employee_id,
+        pay_period_date: data.pay_period_date,
+        gross_salary: grossVal,
+        net_salary: finalNet,
+        taxes_and_contributions: finalTaxes,
+        salary_paid_status: "pending",
+        taxes_paid_status: "pending",
+        salary_due_date: sDue,
+        taxes_due_date: tDue,
+        company_id: data.company_id,
+      };
+
+      await addPayrollStub.mutateAsync(newStub);
+
+      form.reset({
+        ...data,
+        employee_name: "",
+        employee_id: "",
+        gross_salary: "",
+      });
+      setPreview(null);
     } catch (err) {
-        toast.error("An unexpected error occurred");
-        console.error(err);
+      // Error toast is handled by the mutation hook
+      console.error(err);
     }
   }
 
@@ -396,7 +384,8 @@ export function PayrollForm({ companies = [], onAdd, onSave }: PayrollFormProps)
             )}
 
             <div className="flex justify-end gap-3 pt-2">
-              <Button type="submit" className="gap-2">
+              <Button type="submit" className="gap-2" disabled={addPayrollStub.isPending}>
+                {addPayrollStub.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 <ArrowRight className="h-4 w-4" />
                 Create Payroll Entry
               </Button>

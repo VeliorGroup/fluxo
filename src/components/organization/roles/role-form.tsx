@@ -21,11 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useRoles, useDepartments } from "@/lib/supabase-data";
+import { useRoles, useDepartments, useAddRole, useUpdateRole } from "@/lib/supabase-queries";
 import { Role } from "@/lib/types";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -44,9 +42,11 @@ interface RoleFormProps {
 }
 
 export function RoleForm({ role, onSuccess }: RoleFormProps) {
-  const { addRole, updateRole, roles } = useRoles();
-  const { departments } = useDepartments();
-  const [loading, setLoading] = useState(false);
+  const addRole = useAddRole();
+  const updateRole = useUpdateRole();
+  const { data: roles = [] } = useRoles();
+  const { data: departments = [] } = useDepartments();
+  const isPending = addRole.isPending || updateRole.isPending;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -59,38 +59,33 @@ export function RoleForm({ role, onSuccess }: RoleFormProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setLoading(true);
     const parentId = values.parent_id === "none" ? null : values.parent_id;
 
     try {
       if (role) {
-        await updateRole(role.id, {
+        await updateRole.mutateAsync({
+          id: role.id,
           name: values.name,
           department_id: values.department_id,
           parent_id: parentId as string | undefined,
           description: values.description,
         });
-        toast.success("Role updated successfully");
       } else {
-        await addRole({
+        await addRole.mutateAsync({
           name: values.name,
           department_id: values.department_id,
           parent_id: parentId as string | undefined,
           description: values.description,
         });
-        toast.success("Role added successfully");
       }
       onSuccess?.();
-    } catch (error) {
-      toast.error("Something went wrong");
-      console.error(error);
-    } finally {
-      setLoading(false);
+    } catch {
+      // error toast is automatic
     }
   }
 
   // Filter roles to avoid circular dependency
-  const availableParents = roles.filter(r => 
+  const availableParents = roles.filter(r =>
     r.id !== role?.id
   );
 
@@ -173,8 +168,8 @@ export function RoleForm({ role, onSuccess }: RoleFormProps) {
           )}
         />
         <div className="flex justify-end pt-4">
-          <Button type="submit" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {role ? "Update" : "Create"}
           </Button>
         </div>

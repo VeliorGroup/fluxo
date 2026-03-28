@@ -1,28 +1,21 @@
 "use client";
 
-import { usePayroll, useCompanies } from "@/lib/supabase-data";
+import { usePayroll, useCompanies } from "@/lib/supabase-queries";
 import { PayrollForm } from "@/components/finance/payroll/payroll-form";
 import { PayrollTable } from "@/components/finance/payroll/payroll-table";
 import { formatCurrencyFull } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Banknote, Landmark, Users, Loader2 } from "lucide-react";
+import { Banknote, Landmark, Users } from "lucide-react";
+import { PageSkeleton } from "@/components/ui/skeleton-loaders";
 
 const payrollCurrency = "ALL" as const;
 
 export default function PayrollPage() {
-  const { stubs: entries, loading, refresh, addStub, deleteStub } = usePayroll();
-  const { companies } = useCompanies();
+  const { data: entries = [], isLoading } = usePayroll();
+  const { data: companies = [] } = useCompanies();
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  async function handleDelete(id: string) {
-    await deleteStub(id);
+  if (isLoading) {
+    return <PageSkeleton />;
   }
 
   // ── Summary KPIs ──────────────────
@@ -91,14 +84,14 @@ export default function PayrollPage() {
         ))}
       </div>
 
-      <PayrollForm companies={companies} onAdd={refresh} onSave={addStub} />
+      <PayrollForm companies={companies} />
 
       <Card>
         <CardHeader>
           <CardTitle>Payroll History</CardTitle>
         </CardHeader>
         <CardContent>
-          <PayrollTable entries={entries} onDelete={handleDelete} />
+          <PayrollTable entries={entries} />
         </CardContent>
       </Card>
     </div>

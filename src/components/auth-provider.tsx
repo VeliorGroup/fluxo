@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.replace("/");
     }
     if (isAuthenticated && pathname === "/") {
-      router.replace("/hub");
+      router.replace("/finance/dashboard");
     }
   }, [hydrated, isAuthenticated, pathname, router]);
 

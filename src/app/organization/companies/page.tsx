@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCompanies } from "@/lib/supabase-data";
+import { useCompanies } from "@/lib/supabase-queries";
 import { CompaniesTable } from "@/components/organization/companies-table";
 import { CompanyForm } from "@/components/organization/company-form";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { TableSkeleton } from "@/components/ui/skeleton-loaders";
 
 export default function CompaniesPage() {
-  const { companies, loading, refresh } = useCompanies();
+  const { data: companies = [], isLoading } = useCompanies();
   const [open, setOpen] = useState(false);
 
   return (
@@ -47,7 +48,11 @@ export default function CompaniesPage() {
         </Dialog>
       </div>
 
-      <CompaniesTable data={companies} loading={loading} />
+      {isLoading ? (
+        <TableSkeleton rows={5} columns={5} />
+      ) : (
+        <CompaniesTable data={companies} />
+      )}
     </div>
   );
 }

@@ -3,90 +3,126 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Transaction, categoryLabels, formatCurrencyFull } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Eye, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 const statusConfig: Record<string, { class: string; label: string }> = {
   paid: {
-    class: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    class: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
     label: "Paid",
   },
   pending: {
-    class: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    class: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
     label: "Pending",
   },
   forecasted: {
-    class: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    class: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
     label: "Forecasted",
   },
 };
 
-export const columns: ColumnDef<Transaction>[] = [
-  {
-    accessorKey: "date",
-    header: "Date",
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">
-        {format(parseISO(row.getValue("date")), "MMM dd, yyyy")}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "description",
-    header: "Description",
-    cell: ({ row }) => (
-      <span className="text-sm font-medium">{row.getValue("description")}</span>
-    ),
-  },
-  {
-    accessorKey: "category",
-    header: "Category",
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">
-        {categoryLabels[row.getValue("category") as keyof typeof categoryLabels]}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "amount",
-    header: () => <div className="text-right">Amount</div>,
-    cell: ({ row }) => {
-      const amount = row.getValue("amount") as number;
-      return (
-        <div
-          className={`text-right text-sm font-semibold ${
-            amount >= 0
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-red-600 dark:text-red-400"
-          }`}
-        >
-          {amount >= 0 ? "+" : ""}
-          {formatCurrencyFull(amount, "ALL")}
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "company_id",
-    header: "Company",
-    cell: ({ row }) => {
-      return (
+type ColumnCallbacks = {
+  onView: (tx: Transaction) => void;
+  onDelete: (tx: Transaction) => void;
+};
+
+export function getTransactionColumns({ onView, onDelete }: ColumnCallbacks): ColumnDef<Transaction>[] {
+  return [
+    {
+      accessorKey: "date",
+      header: "Date",
+      cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {row.original.company_name ?? "Unknown"}
+          {format(parseISO(row.getValue("date")), "dd MMM yyyy")}
         </span>
-      );
+      ),
     },
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const status = row.getValue("status") as string;
-      const config = statusConfig[status];
-      return (
-        <Badge variant="outline" className={config?.class}>
-          {config?.label ?? status}
-        </Badge>
-      );
+    {
+      accessorKey: "description",
+      header: "Description",
+      cell: ({ row }) => (
+        <span className="text-sm font-medium truncate max-w-[250px] block">
+          {row.getValue("description")}
+        </span>
+      ),
     },
-  },
-];
+    {
+      accessorKey: "category",
+      header: "Category",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {categoryLabels[row.getValue("category") as keyof typeof categoryLabels] ?? row.getValue("category")}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "amount",
+      header: () => <div className="text-right">Amount</div>,
+      cell: ({ row }) => {
+        const amount = row.getValue("amount") as number;
+        const currency = (row.original as Transaction & { currency?: string }).currency ?? "EUR";
+        return (
+          <div
+            className={`text-right text-sm font-semibold tabular-nums ${
+              amount >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-red-600 dark:text-red-400"
+            }`}
+          >
+            {amount >= 0 ? "+" : ""}
+            {formatCurrencyFull(amount, currency as "EUR" | "ALL")}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.getValue("status") as string;
+        const config = statusConfig[status];
+        return (
+          <Badge variant="outline" className={`rounded-full border-0 ${config?.class}`}>
+            {config?.label ?? status}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const tx = row.original;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onView(tx)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View details
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDelete(tx)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ];
+}

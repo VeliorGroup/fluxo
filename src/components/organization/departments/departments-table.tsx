@@ -17,9 +17,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash, FolderTree } from "lucide-react";
 import { Department } from "@/lib/types";
-import { useDepartments, useCompanies } from "@/lib/supabase-data";
+import { useDeleteDepartment, useCompanies, useDepartments } from "@/lib/supabase-queries";
 import { useState } from "react";
 import {
   Dialog,
@@ -29,34 +29,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DepartmentForm } from "./department-form";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface DepartmentsTableProps {
   data: Department[];
-  loading: boolean;
 }
 
-export function DepartmentsTable({ data, loading }: DepartmentsTableProps) {
-  const { deleteDepartment } = useDepartments();
-  const { companies } = useCompanies();
+export function DepartmentsTable({ data }: DepartmentsTableProps) {
+  const deleteDepartment = useDeleteDepartment();
+  const { data: companies = [] } = useCompanies();
+  const { data: allDepartments = [] } = useDepartments();
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [deletingDepartment, setDeletingDepartment] = useState<Department | null>(null);
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (deletingDepartment) {
-      await deleteDepartment(deletingDepartment.id);
-      toast.success("Department deleted successfully");
-      setDeletingDepartment(null);
+      deleteDepartment.mutate(deletingDepartment.id, {
+        onSettled: () => setDeletingDepartment(null),
+      });
     }
   };
 
@@ -66,12 +57,8 @@ export function DepartmentsTable({ data, loading }: DepartmentsTableProps) {
 
   const getParentName = (parentId?: string) => {
     if (!parentId) return "-";
-    return data.find((d) => d.id === parentId)?.name || "Unknown";
+    return allDepartments.find((d) => d.id === parentId)?.name || "Unknown";
   };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <>
@@ -89,7 +76,11 @@ export function DepartmentsTable({ data, loading }: DepartmentsTableProps) {
             {data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="h-24 text-center">
-                  No departments found.
+                  <EmptyState
+                    icon={FolderTree}
+                    title="No departments found"
+                    description="Add your first department to get started."
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -152,26 +143,16 @@ export function DepartmentsTable({ data, loading }: DepartmentsTableProps) {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <ConfirmDialog
         open={!!deletingDepartment}
         onOpenChange={(open) => !open && setDeletingDepartment(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              department and remove it from our servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Are you sure?"
+        description="This action cannot be undone. This will permanently delete the department and remove it from our servers."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        loading={deleteDepartment.isPending}
+      />
     </>
   );
 }

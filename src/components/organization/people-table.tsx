@@ -17,9 +17,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash, Users } from "lucide-react";
 import { Person } from "@/lib/types";
-import { usePeople } from "@/lib/supabase-data";
+import { useDeletePerson } from "@/lib/supabase-queries";
 import { useState } from "react";
 import {
   Dialog,
@@ -29,40 +29,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PersonForm } from "./person-form";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 
 interface PeopleTableProps {
   data: Person[];
-  loading: boolean;
 }
 
-export function PeopleTable({ data, loading }: PeopleTableProps) {
-  const { deletePerson } = usePeople();
+export function PeopleTable({ data }: PeopleTableProps) {
+  const deletePerson = useDeletePerson();
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [deletingPerson, setDeletingPerson] = useState<Person | null>(null);
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (deletingPerson) {
-      await deletePerson(deletingPerson.id);
-      toast.success("Person deleted successfully");
-      setDeletingPerson(null);
+      deletePerson.mutate(deletingPerson.id, {
+        onSettled: () => setDeletingPerson(null),
+      });
     }
   };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <>
@@ -81,7 +67,11 @@ export function PeopleTable({ data, loading }: PeopleTableProps) {
             {data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                  No people found.
+                  <EmptyState
+                    icon={Users}
+                    title="No people found"
+                    description="Add your first person to get started."
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -99,13 +89,13 @@ export function PeopleTable({ data, loading }: PeopleTableProps) {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span>{person.role || "—"}</span>
+                      <span>{person.role || "\u2014"}</span>
                       <span className="text-xs text-muted-foreground">
                         {person.department}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell>{person.company_name || "—"}</TableCell>
+                  <TableCell>{person.company_name || "\u2014"}</TableCell>
                   <TableCell>
                     <Badge
                       variant={
@@ -174,26 +164,16 @@ export function PeopleTable({ data, loading }: PeopleTableProps) {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <ConfirmDialog
         open={!!deletingPerson}
         onOpenChange={(open) => !open && setDeletingPerson(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              person record.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Are you sure?"
+        description="This action cannot be undone. This will permanently delete the person record."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        loading={deletePerson.isPending}
+      />
     </>
   );
 }

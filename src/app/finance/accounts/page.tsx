@@ -5,8 +5,11 @@ import {
   useTransactions,
   useCompanies,
   useAccounts,
-  computeAccountsWithBalances,
-} from "@/lib/supabase-data";
+  useAddAccount,
+  useUpdateAccount,
+  useDeleteAccount,
+} from "@/lib/supabase-queries";
+import { computeAccountsWithBalances } from "@/lib/supabase-data";
 import { Account } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +25,9 @@ import {
   X,
   Trash2,
   Plus,
-  Loader2,
+  Eye,
 } from "lucide-react";
+import Link from "next/link";
 import { useCurrency } from "@/components/currency-provider";
 import {
   Select,
@@ -33,19 +37,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { CardSkeleton } from "@/components/ui/skeleton-loaders";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function AccountsPage() {
   const { displayCurrency, formatDisplay, exchangeRate } = useCurrency();
-  const { transactions, loading: txLoading } = useTransactions();
-  const { companies, loading: compLoading } = useCompanies();
-  const {
-    accounts: rawAccounts,
-    loading: accLoading,
-    addAccount,
-    updateAccount,
-    deleteAccount: removeAccount,
-  } = useAccounts();
-  
+  const { data: transactions = [], isLoading: txLoading } = useTransactions();
+  const { data: companies = [], isLoading: compLoading } = useCompanies();
+  const { data: rawAccounts = [], isLoading: accLoading } = useAccounts();
+  const addAccountMutation = useAddAccount();
+  const updateAccountMutation = useUpdateAccount();
+  const deleteAccountMutation = useDeleteAccount();
+
   const loading = txLoading || compLoading || accLoading;
 
   // Compute accounts with balances
@@ -57,7 +60,7 @@ export default function AccountsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState({
     name: "",
-    balance: "", // This represents initial balance in DB
+    balance: "",
   });
 
   // Adding state
@@ -66,23 +69,15 @@ export default function AccountsPage() {
     companyId: "",
     name: "",
     currency: "EUR" as "EUR" | "ALL",
-    balance: "", // Initial balance
+    balance: "",
   });
 
   // Delete confirm
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // ── Handlers ─────────────────────────────────
   function startEdit(acct: Account) {
     setEditingId(acct.id);
-    // When editing, we edit the *initial* balance? 
-    // Wait, account.balance from computeAccountsWithBalances is TOTAL balance.
-    // We can't easily edit total balance directly because it's derived.
-    // We should allow editing the "Initial Balance" (which is stored in DB as balance).
-    // Let's assume we want to edit the name and the initial balance.
-    // We need to know what the stored DB balance is. 
-    // computeAccountsWithBalances uses account.balance as initial. 
-    // So we can use rawAccounts to get the initial balance.
     const raw = rawAccounts.find(a => a.id === acct.id);
     setEditValues({
       name: acct.name,
@@ -92,22 +87,30 @@ export default function AccountsPage() {
 
   async function saveEdit() {
     if (!editingId) return;
-    await updateAccount(editingId, {
-      name: editValues.name,
-      balance: parseFloat(editValues.balance) || 0,
-    });
-    setEditingId(null);
-    toast.success("Account updated");
+    try {
+      await updateAccountMutation.mutateAsync({
+        id: editingId,
+        name: editValues.name,
+        balance: parseFloat(editValues.balance) || 0,
+      });
+      setEditingId(null);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   function cancelEdit() {
     setEditingId(null);
   }
 
-  async function handleDelete(id: string) {
-    await removeAccount(id);
-    setConfirmDelete(null);
-    toast.success("Account deleted");
+  async function handleDelete() {
+    if (!confirmDeleteId) return;
+    try {
+      await deleteAccountMutation.mutateAsync(confirmDeleteId);
+      setConfirmDeleteId(null);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   async function handleAdd() {
@@ -115,29 +118,36 @@ export default function AccountsPage() {
       toast.error("Please fill in company and name");
       return;
     }
-    
-    await addAccount({
-      company_id: newAcct.companyId,
-      name: newAcct.name,
-      currency: newAcct.currency,
-      type: "bank",
-      balance: parseFloat(newAcct.balance) || 0,
-    });
-    
-    setShowAdd(false);
-    setNewAcct({
-      companyId: companies[0]?.id ?? "",
-      name: "",
-      currency: "EUR",
-      balance: "",
-    });
-    toast.success("Account created");
+
+    try {
+      await addAccountMutation.mutateAsync({
+        company_id: newAcct.companyId,
+        name: newAcct.name,
+        currency: newAcct.currency,
+        type: "bank",
+        balance: parseFloat(newAcct.balance) || 0,
+      });
+
+      setShowAdd(false);
+      setNewAcct({
+        companyId: companies[0]?.id ?? "",
+        name: "",
+        currency: "EUR",
+        balance: "",
+      });
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
+          <div className="h-4 w-72 animate-pulse rounded-lg bg-muted" />
+        </div>
+        <CardSkeleton count={4} />
       </div>
     );
   }
@@ -157,7 +167,7 @@ export default function AccountsPage() {
       company: c,
       accts: accounts.filter((a) => a.company_id === c.id),
     }))
-    .filter((g) => g.accts.length > 0 || showAdd /* Show companies even if no accounts? Maybe not */);
+    .filter((g) => g.accts.length > 0);
 
   // If adding, ensure we have companies
   if (showAdd && !newAcct.companyId && companies.length > 0) {
@@ -205,14 +215,14 @@ export default function AccountsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-1 w-32">
                 <label className="text-xs font-medium text-muted-foreground">
                   Name
                 </label>
-                <Input 
-                  className="h-9" 
-                  placeholder="e.g. Main Bank" 
+                <Input
+                  className="h-9"
+                  placeholder="e.g. Main Bank"
                   value={newAcct.name}
                   onChange={e => setNewAcct(p => ({ ...p, name: e.target.value }))}
                 />
@@ -235,7 +245,7 @@ export default function AccountsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-1 w-24">
                 <label className="text-xs font-medium text-muted-foreground">
                   Initial Bal.
@@ -250,8 +260,8 @@ export default function AccountsPage() {
                   }
                 />
               </div>
-              
-              <Button size="sm" className="h-9" onClick={handleAdd}>
+
+              <Button size="sm" className="h-9" onClick={handleAdd} disabled={addAccountMutation.isPending}>
                 Add
               </Button>
               <Button
@@ -301,7 +311,6 @@ export default function AccountsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             {accts.map((acct) => {
               const isEditing = editingId === acct.id;
-              const isConfirmingDelete = confirmDelete === acct.id;
 
               return (
                 <Card key={acct.id} className="group relative">
@@ -316,35 +325,14 @@ export default function AccountsPage() {
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      {isConfirmingDelete ? (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => handleDelete(acct.id)}
-                          >
-                            Confirm
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => setConfirmDelete(null)}
-                          >
-                            ✕
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-red-500"
-                          onClick={() => setConfirmDelete(acct.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                        onClick={() => setConfirmDeleteId(acct.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   )}
 
@@ -355,8 +343,8 @@ export default function AccountsPage() {
                       </div>
                       <div>
                         {isEditing ? (
-                          <Input 
-                            value={editValues.name} 
+                          <Input
+                            value={editValues.name}
                             onChange={e => setEditValues(p => ({ ...p, name: e.target.value }))}
                             className="h-7 text-sm font-medium w-32"
                           />
@@ -399,6 +387,7 @@ export default function AccountsPage() {
                             size="sm"
                             className="h-8 gap-1.5"
                             onClick={saveEdit}
+                            disabled={updateAccountMutation.isPending}
                           >
                             <Check className="h-3.5 w-3.5" />
                             Save
@@ -438,19 +427,28 @@ export default function AccountsPage() {
                             </p>
                           )}
                         </div>
-                        <div className="flex gap-4 text-sm">
-                          <div className="flex items-center gap-1.5">
-                            <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-500" />
-                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                              {formatDisplay(acct.inflows || 0, acct.currency)}
-                            </span>
+                        <div className="flex items-center justify-between">
+                          <div className="flex gap-4 text-sm">
+                            <div className="flex items-center gap-1.5">
+                              <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-500" />
+                              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                {formatDisplay(acct.inflows || 0, acct.currency)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <ArrowUpRight className="h-3.5 w-3.5 text-red-500" />
+                              <span className="text-red-600 dark:text-red-400 font-medium">
+                                {formatDisplay(acct.outflows || 0, acct.currency)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <ArrowUpRight className="h-3.5 w-3.5 text-red-500" />
-                            <span className="text-red-600 dark:text-red-400 font-medium">
-                              {formatDisplay(acct.outflows || 0, acct.currency)}
-                            </span>
-                          </div>
+                          <Link
+                            href={`/finance/transactions?account=${acct.id}`}
+                            className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Transactions
+                          </Link>
                         </div>
                       </>
                     )}
@@ -461,7 +459,7 @@ export default function AccountsPage() {
           </div>
         </div>
       ))}
-      
+
       {/* Empty state override if no accounts but we have companies */}
       {!loading && accounts.length === 0 && !showAdd && (
          <Card className="py-12 text-center">
@@ -474,6 +472,18 @@ export default function AccountsPage() {
            </Button>
          </Card>
       )}
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}
+        title="Delete Account"
+        description="Are you sure you want to delete this account? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        loading={deleteAccountMutation.isPending}
+      />
     </div>
   );
 }

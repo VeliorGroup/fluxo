@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { QueryProvider } from "@/components/query-provider";
 import { AuthProvider } from "@/components/auth-provider";
 import { CurrencyProvider } from "@/components/currency-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { AppShell } from "@/components/layout/app-shell";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import { Toaster } from "@/components/ui/sonner";
@@ -36,16 +38,20 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <CurrencyProvider exchangeRate={exchangeRate.rate}>
-              <TooltipProvider>
-                <AppShell exchangeRate={exchangeRate}>
-                  {children}
-                </AppShell>
-                <Toaster />
-              </TooltipProvider>
-            </CurrencyProvider>
-          </AuthProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <CurrencyProvider exchangeRate={exchangeRate.rate}>
+                <TooltipProvider>
+                  <ErrorBoundary>
+                    <AppShell exchangeRate={exchangeRate}>
+                      {children}
+                    </AppShell>
+                  </ErrorBoundary>
+                  <Toaster richColors closeButton />
+                </TooltipProvider>
+              </CurrencyProvider>
+            </AuthProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

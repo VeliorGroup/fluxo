@@ -1,8 +1,12 @@
 "use client";
 
 import { useAuth } from "@/components/auth-provider";
-import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
+import { BreadcrumbNav } from "@/components/layout/breadcrumb-nav";
+import { CommandPalette, useCommandPalette } from "@/components/command-palette";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { CurrencyToggle } from "@/components/currency-toggle";
+import { Search, Bell } from "lucide-react";
 import type { ExchangeRateData } from "@/lib/exchange-rate";
 
 export function AppShell({
@@ -12,28 +16,78 @@ export function AppShell({
   exchangeRate: ExchangeRateData;
   children: React.ReactNode;
 }) {
-  const { isAuthenticated } = useAuth();
-  const pathname = usePathname();
+  const { isAuthenticated, username } = useAuth();
+  const { open: cmdOpen, setOpen: setCmdOpen } = useCommandPalette();
 
-  // Login page — no sidebar, full-bleed
+  // Login page — no shell
   if (!isAuthenticated) {
     return <>{children}</>;
   }
 
-  // Hub page — no sidebar, full-bleed
-  if (pathname === "/hub") {
-    return <>{children}</>;
-  }
-
-  // Authenticated — sidebar + content
   return (
-    <div className="flex min-h-screen">
-      <Sidebar exchangeRate={exchangeRate} />
-      <main className="flex-1 md:ml-64">
-        <div className="mx-auto max-w-7xl px-4 pt-16 pb-8 md:py-8 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen bg-muted/30">
+      <Sidebar
+        exchangeRate={exchangeRate}
+        onOpenCommandPalette={() => setCmdOpen(true)}
+      />
+
+      <main className="flex-1 transition-all duration-300 max-md:ml-0 md:ml-60">
+        {/* Top bar */}
+        <div className="sticky top-0 z-30 bg-background border-b border-border">
+          <div className="px-6 lg:px-8">
+            <div className="flex h-14 items-center gap-4 max-md:pl-14">
+              {/* Search */}
+              <button
+                onClick={() => setCmdOpen(true)}
+                className="flex flex-1 max-w-md items-center gap-2.5 rounded-full bg-muted/60 px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <Search className="h-4 w-4 shrink-0" />
+                <span className="flex-1 text-left text-xs">Search...</span>
+                <kbd className="hidden sm:inline-flex h-5 items-center gap-0.5 rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </button>
+
+              <div className="flex-1" />
+
+              {/* Controls */}
+              <CurrencyToggle />
+              <ThemeToggle />
+
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted transition-colors relative"
+                aria-label="Notifications"
+              >
+                <Bell className="h-4 w-4" />
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
+              </button>
+
+              {/* User */}
+              <div className="flex items-center gap-2.5 pl-2 border-l border-border">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold shrink-0">
+                  {username?.charAt(0).toUpperCase() ?? "U"}
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-sm font-semibold leading-tight">{username}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Admin</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Breadcrumb */}
+        <div className="px-6 lg:px-8 py-2 bg-background/50">
+          <BreadcrumbNav />
+        </div>
+
+        {/* Content */}
+        <div className="px-6 lg:px-8 py-6">
           {children}
         </div>
       </main>
+
+      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
     </div>
   );
 }

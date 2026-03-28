@@ -1,39 +1,35 @@
 "use client";
 
-import { useTransactions } from "@/lib/supabase-data";
+import { useMemo } from "react";
+import { useTransactions } from "@/lib/supabase-queries";
+import { useCurrency } from "@/components/currency-provider";
+import { computeKPIs } from "@/lib/supabase-data";
 import { KPICards } from "@/components/finance/dashboard/kpi-cards";
 import { RunwayChart } from "@/components/finance/dashboard/runway-chart";
 import { UpcomingPayments } from "@/components/finance/dashboard/upcoming-payments";
-import { Loader2 } from "lucide-react";
+import { PageSkeleton } from "@/components/ui/skeleton-loaders";
 
 export default function DashboardPage() {
-  const { transactions, loading } = useTransactions();
+  const { data: transactions = [], isLoading } = useTransactions();
+  const { exchangeRate } = useCurrency();
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+  const kpis = useMemo(() => computeKPIs(transactions, exchangeRate), [transactions, exchangeRate]);
+
+  if (isLoading) {
+    return <PageSkeleton />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-muted-foreground">
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Your real-time cash flow overview across all entities.
         </p>
       </div>
 
-      {/* KPI Cards */}
-      <KPICards transactions={transactions} />
-
-      {/* Runway Chart */}
-      <RunwayChart transactions={transactions} />
-
-      {/* Upcoming Payments */}
+      <KPICards transactions={transactions} exchangeRate={exchangeRate} />
+      <RunwayChart transactions={transactions} exchangeRate={exchangeRate} burnRate={kpis.burnRate} />
       <UpcomingPayments transactions={transactions} />
     </div>
   );

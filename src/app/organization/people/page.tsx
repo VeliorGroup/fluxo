@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePeople } from "@/lib/supabase-data";
+import { usePeople } from "@/lib/supabase-queries";
 import { PeopleTable } from "@/components/organization/people-table";
 import { PersonForm } from "@/components/organization/person-form";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { TableSkeleton } from "@/components/ui/skeleton-loaders";
 
 export default function PeoplePage() {
-  const { people, loading } = usePeople();
+  const { data: people = [], isLoading } = usePeople();
   const [open, setOpen] = useState(false);
 
   return (
@@ -47,7 +48,11 @@ export default function PeoplePage() {
         </Dialog>
       </div>
 
-      <PeopleTable data={people} loading={loading} />
+      {isLoading ? (
+        <TableSkeleton rows={5} columns={5} />
+      ) : (
+        <PeopleTable data={people} />
+      )}
     </div>
   );
 }

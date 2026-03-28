@@ -1,22 +1,18 @@
 "use client";
 
-import { useDepartments, useRoles } from "@/lib/supabase-data";
+import { useDepartments, useRoles } from "@/lib/supabase-queries";
 import { OrgChartTree } from "@/components/organization/org-chart/org-chart-tree";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { PageSkeleton } from "@/components/ui/skeleton-loaders";
 
 export default function OrgChartPage() {
-  const { departments, loading: loadingDepts } = useDepartments();
-  const { roles, loading: loadingRoles } = useRoles();
+  const { data: departments = [], isLoading: loadingDepts } = useDepartments();
+  const { data: roles = [], isLoading: loadingRoles } = useRoles();
 
   const loading = loadingDepts || loadingRoles;
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-full min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (

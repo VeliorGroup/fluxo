@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useState } from "react";
+import { useDeletePayrollStub } from "@/lib/supabase-queries";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const statusBadge = {
   paid: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
@@ -23,112 +25,110 @@ const statusBadge = {
 
 export function PayrollTable({
   entries,
-  onDelete,
 }: {
   entries: PayrollStub[];
-  onDelete: (id: string) => void;
 }) {
-  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const deletePayrollStub = useDeletePayrollStub();
+
+  async function handleDelete() {
+    if (!confirmDeleteId) return;
+    try {
+      await deletePayrollStub.mutateAsync(confirmDeleteId);
+      setConfirmDeleteId(null);
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   return (
-    <div className="rounded-lg border border-border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider">Employee</TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider">Pay Period</TableHead>
-            <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Net Salary</TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider">Salary Status</TableHead>
-            <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Taxes</TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider">Tax Status</TableHead>
-            <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Total</TableHead>
-            <TableHead className="w-12" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {entries.length === 0 && (
+    <>
+      <div className="rounded-lg border border-border">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
-                No payroll entries yet.
-              </TableCell>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider">Employee</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider">Pay Period</TableHead>
+              <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Net Salary</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider">Salary Status</TableHead>
+              <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Taxes</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider">Tax Status</TableHead>
+              <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Total</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
-          )}
-          {entries.map((stub) => (
-            <TableRow key={stub.id} className="group transition-colors hover:bg-accent/50">
-              <TableCell>
-                <div>
-                  <p className="text-sm font-medium">{stub.employee_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {stub.employee_id}
-                  </p>
-                </div>
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {format(parseISO(stub.pay_period_date), "MMM yyyy")}
-              </TableCell>
-              <TableCell className="text-right text-sm font-semibold">
-                {formatCurrencyFull(stub.net_salary, "ALL")}
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant="outline"
-                  className={statusBadge[stub.salary_paid_status]}
-                >
-                  {stub.salary_paid_status === "paid" ? "Paid" : "Pending"}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right text-sm font-semibold">
-                {formatCurrencyFull(stub.taxes_and_contributions, "ALL")}
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant="outline"
-                  className={statusBadge[stub.taxes_paid_status]}
-                >
-                  {stub.taxes_paid_status === "paid" ? "Paid" : "Pending"}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right text-sm font-bold">
-                {formatCurrencyFull(stub.gross_salary, "ALL")}
-              </TableCell>
-              <TableCell>
-                {confirmId === stub.id ? (
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => {
-                        onDelete(stub.id);
-                        setConfirmId(null);
-                      }}
-                    >
-                      Confirm
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => setConfirmId(null)}
-                    >
-                      ✕
-                    </Button>
+          </TableHeader>
+          <TableBody>
+            {entries.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                  No payroll entries yet.
+                </TableCell>
+              </TableRow>
+            )}
+            {entries.map((stub) => (
+              <TableRow key={stub.id} className="group transition-colors hover:bg-accent/50">
+                <TableCell>
+                  <div>
+                    <p className="text-sm font-medium">{stub.employee_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {stub.employee_id}
+                    </p>
                   </div>
-                ) : (
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {format(parseISO(stub.pay_period_date), "MMM yyyy")}
+                </TableCell>
+                <TableCell className="text-right text-sm font-semibold">
+                  {formatCurrencyFull(stub.net_salary, "ALL")}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={statusBadge[stub.salary_paid_status]}
+                  >
+                    {stub.salary_paid_status === "paid" ? "Paid" : "Pending"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right text-sm font-semibold">
+                  {formatCurrencyFull(stub.taxes_and_contributions, "ALL")}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={statusBadge[stub.taxes_paid_status]}
+                  >
+                    {stub.taxes_paid_status === "paid" ? "Paid" : "Pending"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right text-sm font-bold">
+                  {formatCurrencyFull(stub.gross_salary, "ALL")}
+                </TableCell>
+                <TableCell>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500"
-                    onClick={() => setConfirmId(stub.id)}
+                    onClick={() => setConfirmDeleteId(stub.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}
+        title="Delete Payroll Entry"
+        description="Are you sure you want to delete this payroll entry? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        loading={deletePayrollStub.isPending}
+      />
+    </>
   );
 }

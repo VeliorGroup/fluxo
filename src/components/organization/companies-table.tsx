@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Pencil, Trash } from "lucide-react";
 import { Company } from "@/lib/types";
-import { useCompanies } from "@/lib/supabase-data";
+import { useDeleteCompany } from "@/lib/supabase-queries";
 import { useState } from "react";
 import {
   Dialog,
@@ -29,39 +29,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CompanyForm } from "./company-form";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Building2 } from "lucide-react";
 
 interface CompaniesTableProps {
   data: Company[];
-  loading: boolean;
 }
 
-export function CompaniesTable({ data, loading }: CompaniesTableProps) {
-  const { deleteCompany } = useCompanies();
+export function CompaniesTable({ data }: CompaniesTableProps) {
+  const deleteCompany = useDeleteCompany();
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [deletingCompany, setDeletingCompany] = useState<Company | null>(null);
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (deletingCompany) {
-      await deleteCompany(deletingCompany.id);
-      toast.success("Company deleted successfully");
-      setDeletingCompany(null);
+      deleteCompany.mutate(deletingCompany.id, {
+        onSettled: () => setDeletingCompany(null),
+      });
     }
   };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <>
@@ -80,7 +67,11 @@ export function CompaniesTable({ data, loading }: CompaniesTableProps) {
             {data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                  No companies found.
+                  <EmptyState
+                    icon={Building2}
+                    title="No companies found"
+                    description="Add your first company to get started."
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -148,26 +139,16 @@ export function CompaniesTable({ data, loading }: CompaniesTableProps) {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <ConfirmDialog
         open={!!deletingCompany}
         onOpenChange={(open) => !open && setDeletingCompany(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              company and remove it from our servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Are you sure?"
+        description="This action cannot be undone. This will permanently delete the company and remove it from our servers."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        loading={deleteCompany.isPending}
+      />
     </>
   );
 }

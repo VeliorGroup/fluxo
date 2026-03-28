@@ -1,6 +1,6 @@
 "use client";
 
-import { useRoles } from "@/lib/supabase-data";
+import { useRoles } from "@/lib/supabase-queries";
 import { RolesTable } from "@/components/organization/roles/roles-table";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
@@ -14,9 +14,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { RoleForm } from "@/components/organization/roles/role-form";
+import { TableSkeleton } from "@/components/ui/skeleton-loaders";
 
 export default function RolesPage() {
-  const { roles, loading } = useRoles();
+  const { data: roles = [], isLoading } = useRoles();
   const [open, setOpen] = useState(false);
 
   return (
@@ -46,7 +47,11 @@ export default function RolesPage() {
           </DialogContent>
         </Dialog>
       </div>
-      <RolesTable data={roles} loading={loading} />
+      {isLoading ? (
+        <TableSkeleton rows={5} columns={5} />
+      ) : (
+        <RolesTable data={roles} />
+      )}
     </div>
   );
 }
