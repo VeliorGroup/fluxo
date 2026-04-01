@@ -54,6 +54,9 @@ const transactionSchema = z.object({
   recurrence: z.enum(["one_time", "monthly", "annual"], {
     message: "Recurrence is required",
   }),
+  source_type: z.enum(["business", "personal"], {
+    message: "Source is required",
+  }),
   status: z.enum(["paid", "pending", "forecasted"], {
     message: "Status is required",
   }),
@@ -79,6 +82,7 @@ export function AddTransactionDialog() {
       category: "",
       type: "expense",
       recurrence: "one_time",
+      source_type: "business",
       status: "pending",
       company_id: "",
       account_id: "",
@@ -92,7 +96,7 @@ export function AddTransactionDialog() {
       const acc = accounts.find((a) => a.id === selectedAccountId);
       if (acc) {
         form.setValue("currency", acc.currency);
-        form.setValue("company_id", acc.company_id);
+        form.setValue("company_id", acc.company_id ?? "");
       }
     }
   }, [selectedAccountId, accounts, form]);
@@ -106,6 +110,8 @@ export function AddTransactionDialog() {
         ...data,
         amount: finalAmount,
         category: data.category as TransactionCategory,
+        recurrence: data.recurrence,
+        source_type: data.source_type,
       });
 
       form.reset();
@@ -144,7 +150,7 @@ export function AddTransactionDialog() {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {/* Type */}
               <FormField
                 control={form.control}
@@ -172,6 +178,42 @@ export function AddTransactionDialog() {
                           <span className="flex items-center gap-2">
                             <span className="h-2 w-2 rounded-full bg-red-500" />
                             Expense
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Source Type */}
+              <FormField
+                control={form.control}
+                name="source_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Source</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Source" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="business">
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-blue-500" />
+                            Business
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="personal">
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-violet-500" />
+                            Personal
                           </span>
                         </SelectItem>
                       </SelectContent>

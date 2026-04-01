@@ -6,6 +6,7 @@ import { useTransactions, useDeleteTransaction, useAccounts } from "@/lib/supaba
 import { DataTable } from "@/components/ui/data-table";
 import { getTransactionColumns } from "@/components/finance/transactions/columns";
 import { AddTransactionDialog } from "@/components/finance/transactions/add-transaction-dialog";
+import { TransferDialog } from "@/components/finance/transactions/transfer-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Select,
@@ -22,9 +23,9 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftRight, X } from "lucide-react";
+import { ArrowLeftRight, X, Repeat, User, Building2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { categoryLabels, formatCurrencyFull, type Transaction } from "@/lib/types";
+import { categoryLabels, recurrenceLabels, sourceTypeLabels, formatCurrencyFull, type Transaction, type TransactionCategory, type TransactionRecurrence, type TransactionSourceType } from "@/lib/types";
 import { PageSkeleton } from "@/components/ui/skeleton-loaders";
 
 export default function TransactionsPage() {
@@ -36,16 +37,24 @@ export default function TransactionsPage() {
   const deleteTx = useDeleteTransaction();
 
   const [accountFilter, setAccountFilter] = useState<string>(accountIdFromUrl ?? "all");
+  const [recurrenceFilter, setRecurrenceFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [viewTx, setViewTx] = useState<Transaction | null>(null);
   const [deleteTxTarget, setDeleteTxTarget] = useState<Transaction | null>(null);
 
-  // Filter transactions by selected account
+  // Filter transactions
   const transactions = useMemo(() => {
-    if (accountFilter === "all") return allTransactions;
-    return allTransactions.filter((t) => t.account_id === accountFilter);
-  }, [allTransactions, accountFilter]);
+    let filtered = allTransactions;
+    if (accountFilter !== "all") filtered = filtered.filter((t) => t.account_id === accountFilter);
+    if (recurrenceFilter !== "all") filtered = filtered.filter((t) => (t.recurrence ?? "one_time") === recurrenceFilter);
+    if (sourceFilter !== "all") filtered = filtered.filter((t) => (t.source_type ?? "business") === sourceFilter);
+    if (categoryFilter !== "all") filtered = filtered.filter((t) => t.category === categoryFilter);
+    return filtered;
+  }, [allTransactions, accountFilter, recurrenceFilter, sourceFilter, categoryFilter]);
 
   const activeAccount = accounts.find((a) => a.id === accountFilter);
+  const hasActiveFilters = accountFilter !== "all" || recurrenceFilter !== "all" || sourceFilter !== "all" || categoryFilter !== "all";
 
   const columns = useMemo(
     () =>
@@ -69,13 +78,16 @@ export default function TransactionsPage() {
               : "All income & expenses across every entity."}
           </p>
         </div>
-        <AddTransactionDialog />
+        <div className="flex items-center gap-2">
+          <TransferDialog />
+          <AddTransactionDialog />
+        </div>
       </div>
 
-      {/* Account filter */}
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <Select value={accountFilter} onValueChange={setAccountFilter}>
-          <SelectTrigger className="w-full sm:w-[250px] h-9">
+          <SelectTrigger className="w-full sm:w-[200px] h-9">
             <SelectValue placeholder="All Accounts" />
           </SelectTrigger>
           <SelectContent>
@@ -87,15 +99,59 @@ export default function TransactionsPage() {
             ))}
           </SelectContent>
         </Select>
-        {accountFilter !== "all" && (
+
+        <Select value={recurrenceFilter} onValueChange={setRecurrenceFilter}>
+          <SelectTrigger className="w-full sm:w-[150px] h-9">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Recurrence</SelectItem>
+            <SelectItem value="one_time">One-time</SelectItem>
+            <SelectItem value="monthly">Monthly</SelectItem>
+            <SelectItem value="annual">Annual</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={sourceFilter} onValueChange={setSourceFilter}>
+          <SelectTrigger className="w-full sm:w-[150px] h-9">
+            <SelectValue placeholder="All Sources" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            <SelectItem value="business">
+              <span className="flex items-center gap-2">
+                <Building2 className="h-3.5 w-3.5" /> Business
+              </span>
+            </SelectItem>
+            <SelectItem value="personal">
+              <span className="flex items-center gap-2">
+                <User className="h-3.5 w-3.5" /> Personal
+              </span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-full sm:w-[200px] h-9">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {(Object.entries(categoryLabels) as [TransactionCategory, string][]).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {hasActiveFilters && (
           <Button
             variant="ghost"
-            size="icon"
-            className="h-9 w-9 text-muted-foreground"
-            onClick={() => setAccountFilter("all")}
-            aria-label="Clear filter"
+            size="sm"
+            className="h-9 text-muted-foreground"
+            onClick={() => { setAccountFilter("all"); setRecurrenceFilter("all"); setSourceFilter("all"); setCategoryFilter("all"); }}
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4 mr-1" />
+            Clear
           </Button>
         )}
         <span className="text-xs text-muted-foreground">
@@ -132,7 +188,7 @@ export default function TransactionsPage() {
                 </Detail>
                 <Detail label="Amount">
                   <span className={`font-semibold tabular-nums ${viewTx.amount >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                    {viewTx.amount >= 0 ? "+" : ""}{formatCurrencyFull(viewTx.amount, (viewTx as Transaction & { currency?: string }).currency as "EUR" | "ALL" ?? "EUR")}
+                    {viewTx.amount >= 0 ? "+" : ""}{formatCurrencyFull(viewTx.amount, viewTx.currency as "EUR" | "ALL" ?? "EUR")}
                   </span>
                 </Detail>
                 <Detail label="Status">
@@ -142,6 +198,18 @@ export default function TransactionsPage() {
                 </Detail>
                 <Detail label="Category" value={categoryLabels[viewTx.category] ?? viewTx.category} />
                 <Detail label="Company" value={viewTx.company_name || "—"} />
+                <Detail label="Recurrence">
+                  <div className="flex items-center gap-1.5">
+                    {viewTx.recurrence && viewTx.recurrence !== "one_time" && <Repeat className="h-3.5 w-3.5 text-blue-500" />}
+                    <span className="text-sm font-medium">{recurrenceLabels[viewTx.recurrence ?? "one_time"]}</span>
+                  </div>
+                </Detail>
+                <Detail label="Source">
+                  <div className="flex items-center gap-1.5">
+                    {viewTx.source_type === "personal" ? <User className="h-3.5 w-3.5 text-violet-500" /> : <Building2 className="h-3.5 w-3.5 text-blue-500" />}
+                    <span className="text-sm font-medium">{sourceTypeLabels[viewTx.source_type ?? "business"]}</span>
+                  </div>
+                </Detail>
               </div>
               <Detail label="Description" value={viewTx.description} />
             </div>

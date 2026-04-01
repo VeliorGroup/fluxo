@@ -57,12 +57,13 @@ export type Person = {
 
 export type Account = {
   id: string;
-  company_id: string;
+  company_id?: string;
   name: string;
   currency: Currency;
   type: string;
   description?: string;
   is_default: boolean;
+  is_personal: boolean;
   user_id: string;
   created_at?: string;
   updated_at?: string;
@@ -73,6 +74,8 @@ export type Account = {
 
 export type TransactionStatus = "paid" | "pending" | "forecasted";
 export type TransactionType = "income" | "expense";
+export type TransactionRecurrence = "one_time" | "monthly" | "annual";
+export type TransactionSourceType = "business" | "personal";
 
 export type TransactionCategory =
   | "client_invoice"
@@ -86,7 +89,8 @@ export type TransactionCategory =
   | "equipment"
   | "marketing"
   | "miscellaneous"
-  | "transfer";
+  | "transfer"
+  | "personal_withdrawal";
 
 export const categoryLabels: Record<TransactionCategory, string> = {
   client_invoice: "Client Invoice",
@@ -101,6 +105,18 @@ export const categoryLabels: Record<TransactionCategory, string> = {
   marketing: "Marketing",
   miscellaneous: "Miscellaneous",
   transfer: "Internal Transfer",
+  personal_withdrawal: "Personal Withdrawal",
+};
+
+export const recurrenceLabels: Record<TransactionRecurrence, string> = {
+  one_time: "One-time",
+  monthly: "Monthly",
+  annual: "Annual",
+};
+
+export const sourceTypeLabels: Record<TransactionSourceType, string> = {
+  business: "Business",
+  personal: "Personal",
 };
 
 export type Transaction = {
@@ -111,7 +127,10 @@ export type Transaction = {
   category: TransactionCategory;
   type: TransactionType;
   status: TransactionStatus;
-  company_id: string;
+  recurrence?: TransactionRecurrence;
+  source_type?: TransactionSourceType;
+  transfer_id?: string;
+  company_id?: string;
   account_id?: string;
   company_name?: string;
   currency?: "EUR" | "ALL";

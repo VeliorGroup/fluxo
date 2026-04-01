@@ -51,9 +51,10 @@ export default function AccountsPage() {
 
   const loading = txLoading || compLoading || accLoading;
 
-  // Compute accounts with balances
+  // Compute accounts with balances (exclude personal accounts)
   const accounts = useMemo(() => {
-    return computeAccountsWithBalances(rawAccounts, transactions);
+    const business = rawAccounts.filter((a) => !a.is_personal);
+    return computeAccountsWithBalances(business, transactions);
   }, [rawAccounts, transactions]);
 
   // Editing state
@@ -126,6 +127,7 @@ export default function AccountsPage() {
         currency: newAcct.currency,
         type: "bank",
         balance: parseFloat(newAcct.balance) || 0,
+        is_personal: false,
       });
 
       setShowAdd(false);

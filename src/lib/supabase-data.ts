@@ -375,9 +375,13 @@ export function useTransactions() {
       category: row.category as TransactionCategory,
       type: row.type as TransactionType,
       status: row.status as TransactionStatus,
+      recurrence: (row.recurrence as Transaction["recurrence"]) ?? "one_time",
+      source_type: (row.source_type as Transaction["source_type"]) ?? "business",
+      transfer_id: row.transfer_id as string | undefined,
       company_id: row.company_id as string,
       account_id: row.account_id as string | undefined,
       company_name: (row.companies as { name: string } | null)?.name ?? "",
+      currency: (row.currency as "EUR" | "ALL") ?? "EUR",
       created_at: row.created_at as string,
       updated_at: row.updated_at as string,
     }));
@@ -540,6 +544,44 @@ export function computeKPIs(transactions: Transaction[], exchangeRate: number = 
     burnRate,
     pendingInvoices: { count: pending.length, total: Math.round(pendingTotal * 100) / 100 },
     runway,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Cost Breakdown (recurring vs one-time, business vs personal)
+// ═══════════════════════════════════════════════════════════════
+export function computeCostBreakdown(transactions: Transaction[], exchangeRate: number = 96) {
+  const toEUR = (amount: number, currency?: string) =>
+    currency === "ALL" ? amount / exchangeRate : amount;
+
+  const expenses = transactions.filter(
+    (t) => t.type === "expense" && t.category !== "transfer" && t.status === "paid"
+  );
+
+  const recurring = expenses.filter((t) => t.recurrence === "monthly" || t.recurrence === "annual");
+  const oneTime = expenses.filter((t) => !t.recurrence || t.recurrence === "one_time");
+  const personal = expenses.filter((t) => t.source_type === "personal");
+  const business = expenses.filter((t) => t.source_type !== "personal");
+
+  const sumEUR = (txs: Transaction[]) =>
+    Math.round(txs.reduce((sum, t) => sum + Math.abs(toEUR(t.amount, t.currency)), 0) * 100) / 100;
+
+  // Monthly recurring = monthly costs + annual costs / 12
+  const monthlyRecurring = recurring.reduce((sum, t) => {
+    const amt = Math.abs(toEUR(t.amount, t.currency));
+    return sum + (t.recurrence === "annual" ? amt / 12 : amt);
+  }, 0);
+
+  return {
+    recurringTotal: sumEUR(recurring),
+    recurringMonthly: Math.round(monthlyRecurring * 100) / 100,
+    recurringCount: recurring.length,
+    oneTimeTotal: sumEUR(oneTime),
+    oneTimeCount: oneTime.length,
+    personalTotal: sumEUR(personal),
+    personalCount: personal.length,
+    businessTotal: sumEUR(business),
+    businessCount: business.length,
   };
 }
 

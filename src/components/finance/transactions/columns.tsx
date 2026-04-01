@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Transaction, categoryLabels, formatCurrencyFull } from "@/lib/types";
+import { Transaction, categoryLabels, recurrenceLabels, formatCurrencyFull } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Eye, Trash2 } from "lucide-react";
+import { MoreHorizontal, Eye, Trash2, Repeat, User, ArrowRightLeft } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 const statusConfig: Record<string, { class: string; label: string }> = {
@@ -47,11 +47,36 @@ export function getTransactionColumns({ onView, onDelete }: ColumnCallbacks): Co
     {
       accessorKey: "description",
       header: "Description",
-      cell: ({ row }) => (
-        <span className="text-sm font-medium truncate max-w-[250px] block">
-          {row.getValue("description")}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const tx = row.original;
+        const isRecurring = tx.recurrence && tx.recurrence !== "one_time";
+        const isPersonal = tx.source_type === "personal";
+        const isTransfer = !!tx.transfer_id;
+        return (
+          <div className="flex items-center gap-2 max-w-[280px]">
+            {isTransfer && (
+              <span title="Internal Transfer" className="text-cyan-500 dark:text-cyan-400 shrink-0">
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+              </span>
+            )}
+            <span className="text-sm font-medium truncate">
+              {row.getValue("description")}
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              {isRecurring && (
+                <span title={recurrenceLabels[tx.recurrence!]} className="text-blue-500 dark:text-blue-400">
+                  <Repeat className="h-3.5 w-3.5" />
+                </span>
+              )}
+              {isPersonal && (
+                <span title="Personal" className="text-violet-500 dark:text-violet-400">
+                  <User className="h-3.5 w-3.5" />
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "category",
@@ -66,12 +91,16 @@ export function getTransactionColumns({ onView, onDelete }: ColumnCallbacks): Co
       accessorKey: "amount",
       header: () => <div className="text-right">Amount</div>,
       cell: ({ row }) => {
+        const tx = row.original;
         const amount = row.getValue("amount") as number;
-        const currency = (row.original as Transaction & { currency?: string }).currency ?? "EUR";
+        const currency = tx.currency ?? "EUR";
+        const isTransfer = !!tx.transfer_id;
         return (
           <div
             className={`text-right text-sm font-semibold tabular-nums ${
-              amount >= 0
+              isTransfer
+                ? "text-cyan-600 dark:text-cyan-400"
+                : amount >= 0
                 ? "text-emerald-600 dark:text-emerald-400"
                 : "text-red-600 dark:text-red-400"
             }`}

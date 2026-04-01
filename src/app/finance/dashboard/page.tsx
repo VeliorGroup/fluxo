@@ -5,6 +5,7 @@ import { useTransactions } from "@/lib/supabase-queries";
 import { useCurrency } from "@/components/currency-provider";
 import { computeKPIs } from "@/lib/supabase-data";
 import { KPICards } from "@/components/finance/dashboard/kpi-cards";
+import { CostBreakdown } from "@/components/finance/dashboard/cost-breakdown";
 import { RunwayChart } from "@/components/finance/dashboard/runway-chart";
 import { UpcomingPayments } from "@/components/finance/dashboard/upcoming-payments";
 import { PageSkeleton } from "@/components/ui/skeleton-loaders";
@@ -29,6 +30,7 @@ export default function DashboardPage() {
       </div>
 
       <KPICards transactions={transactions} exchangeRate={exchangeRate} />
+      <CostBreakdown transactions={transactions} exchangeRate={exchangeRate} />
       <RunwayChart transactions={transactions} exchangeRate={exchangeRate} burnRate={kpis.burnRate} />
       <UpcomingPayments transactions={transactions} />
     </div>

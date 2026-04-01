@@ -11,6 +11,8 @@ import type {
   TransactionCategory,
   TransactionType,
   TransactionStatus,
+  TransactionRecurrence,
+  TransactionSourceType,
   PayrollStub,
   Department,
   Role,
@@ -145,14 +147,16 @@ export function useAddAccount() {
   const userId = useUserId();
   return useEntityMutation(
     async (account: Omit<Account, "id" | "user_id" | "created_at" | "updated_at" | "is_default">) => {
-      const result = await supabase.from("financial_accounts").insert({
+      const insert: Record<string, unknown> = {
         user_id: userId!,
-        company_id: account.company_id,
         name: account.name,
         currency: account.currency,
         type: account.type,
         balance: account.balance ?? 0,
-      });
+        is_personal: account.is_personal ?? false,
+      };
+      if (account.company_id) insert.company_id = account.company_id;
+      const result = await supabase.from("financial_accounts").insert(insert);
       return throwOnError(result);
     },
     ["financial_accounts"],
@@ -398,6 +402,9 @@ export function useTransactions() {
         category: row.category as TransactionCategory,
         type: row.type as TransactionType,
         status: row.status as TransactionStatus,
+        recurrence: (row.recurrence as Transaction["recurrence"]) ?? "one_time",
+        source_type: (row.source_type as Transaction["source_type"]) ?? "business",
+        transfer_id: row.transfer_id as string | undefined,
         company_id: row.company_id as string,
         account_id: row.account_id as string | undefined,
         company_name: (row.companies as { name: string } | null)?.name ?? "",
@@ -414,9 +421,8 @@ export function useAddTransaction() {
   const userId = useUserId();
   return useEntityMutation(
     async (tx: Omit<Transaction, "id" | "created_at" | "updated_at" | "company_name">) => {
-      const result = await supabase.from("transactions").insert({
+      const insert: Record<string, unknown> = {
         user_id: userId!,
-        company_id: tx.company_id,
         account_id: tx.account_id,
         amount: Math.abs(tx.amount),
         date: tx.date,
@@ -424,7 +430,12 @@ export function useAddTransaction() {
         category: tx.category,
         type: tx.type,
         status: tx.status,
-      });
+        currency: tx.currency ?? "EUR",
+        recurrence: tx.recurrence ?? "one_time",
+        source_type: tx.source_type ?? "business",
+      };
+      if (tx.company_id) insert.company_id = tx.company_id;
+      const result = await supabase.from("transactions").insert(insert);
       return throwOnError(result);
     },
     ["transactions"],
@@ -435,11 +446,84 @@ export function useAddTransaction() {
 export function useDeleteTransaction() {
   return useEntityMutation(
     async (id: string) => {
+      // If this transaction is part of a transfer, delete both sides
+      const { data: tx } = await supabase
+        .from("transactions")
+        .select("transfer_id")
+        .eq("id", id)
+        .single();
+
+      if (tx?.transfer_id) {
+        const result = await supabase
+          .from("transactions")
+          .delete()
+          .eq("transfer_id", tx.transfer_id);
+        return throwOnError(result);
+      }
+
       const result = await supabase.from("transactions").delete().eq("id", id);
       return throwOnError(result);
     },
     ["transactions"],
     "Transaction deleted",
+  );
+}
+
+type TransferInput = {
+  from_account_id: string;
+  to_account_id: string;
+  amount: number;
+  date: string;
+  description: string;
+  from_company_id?: string;
+  to_company_id?: string;
+  from_currency: "EUR" | "ALL";
+  to_currency: "EUR" | "ALL";
+};
+
+export function useAddTransfer() {
+  const userId = useUserId();
+  return useEntityMutation(
+    async (input: TransferInput) => {
+      const transferId = crypto.randomUUID();
+
+      const fromTx: Record<string, unknown> = {
+        user_id: userId!,
+        account_id: input.from_account_id,
+        amount: Math.abs(input.amount),
+        date: input.date,
+        description: input.description,
+        category: "transfer",
+        type: "expense",
+        status: "paid",
+        currency: input.from_currency,
+        recurrence: "one_time",
+        source_type: "business",
+        transfer_id: transferId,
+      };
+      if (input.from_company_id) fromTx.company_id = input.from_company_id;
+
+      const toTx: Record<string, unknown> = {
+        user_id: userId!,
+        account_id: input.to_account_id,
+        amount: Math.abs(input.amount),
+        date: input.date,
+        description: input.description,
+        category: "transfer",
+        type: "income",
+        status: "paid",
+        currency: input.to_currency,
+        recurrence: "one_time",
+        source_type: "business",
+        transfer_id: transferId,
+      };
+      if (input.to_company_id) toTx.company_id = input.to_company_id;
+
+      const result = await supabase.from("transactions").insert([fromTx, toTx]);
+      return throwOnError(result);
+    },
+    ["transactions"],
+    "Transfer recorded",
   );
 }
 
