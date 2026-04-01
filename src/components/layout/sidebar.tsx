@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
 import { modules, getActiveModule } from "@/lib/navigation";
 import {
-  Menu,
   X,
   TrendingDown,
   TrendingUp,
@@ -26,20 +25,22 @@ import type { ExchangeRateData } from "@/lib/exchange-rate";
 
 const STORAGE_KEY = "fluxo-sidebar-collapsed";
 
-// All modules in explicit order
-const allOrder = ["finance", "leads", "accounts", "opportunities", "projects", "invoices", "expo", "documents", "reports", "organization"];
+const allOrder = ["finance", "leads", "accounts", "opportunities", "projects", "invoices", "documents", "expo", "organization"];
 const modulesById = Object.fromEntries(modules.map((m) => [m.id, m]));
 const orderedModules = allOrder.map((id) => modulesById[id]).filter(Boolean);
 
 export function Sidebar({
   exchangeRate,
   onOpenCommandPalette,
+  mobileOpen,
+  onMobileOpenChange,
 }: {
   exchangeRate: ExchangeRateData;
   onOpenCommandPalette?: () => void;
+  mobileOpen: boolean;
+  onMobileOpenChange: (open: boolean) => void;
 }) {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const { logout } = useAuth();
 
@@ -47,6 +48,11 @@ export function Sidebar({
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === "true") setCollapsed(true);
   }, []);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    onMobileOpenChange(false);
+  }, [pathname, onMobileOpenChange]);
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -68,12 +74,11 @@ export function Sidebar({
           <TooltipTrigger asChild>
             <Link
               href={mainHref}
-              onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex h-10 w-full items-center justify-center rounded-xl transition-all duration-200",
                 isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
               )}
             >
               <Icon className="h-[18px] w-[18px]" />
@@ -88,35 +93,32 @@ export function Sidebar({
       <div key={mod.id}>
         <Link
           href={mainHref}
-          onClick={() => setMobileOpen(false)}
           className={cn(
             "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200",
             isActive
-              ? "bg-sidebar-primary text-sidebar-primary-foreground"
-              : "text-sidebar-foreground hover:bg-sidebar-accent"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
           )}
         >
           <Icon className="h-[18px] w-[18px] shrink-0" />
           <span className="flex-1">{mod.title}</span>
           {hasSubItems && isActive && (
-            <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            <ChevronDown className="h-3.5 w-3.5 opacity-70" />
           )}
         </Link>
 
-        {/* Sub-items: show only when module is active */}
         {isActive && hasSubItems && (
-          <div className="ml-5 mt-0.5 space-y-0.5 border-l-2 border-sidebar-primary/30 pl-3">
+          <div className="ml-5 mt-1 space-y-0.5 border-l-2 border-primary/25 pl-3">
             {mod.navItems.map((sub) => {
               const subActive = pathname === sub.href || pathname.startsWith(sub.href + "/");
               return (
                 <Link
                   key={sub.href}
                   href={sub.href}
-                  onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors",
+                    "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
                     subActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                      ? "bg-primary/10 text-primary font-semibold"
                       : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
                   )}
                 >
@@ -135,80 +137,79 @@ export function Sidebar({
       {/* Mobile overlay */}
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity md:hidden",
+          "fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity duration-300 md:hidden",
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         )}
-        onClick={() => setMobileOpen(false)}
+        onClick={() => onMobileOpenChange(false)}
         aria-hidden="true"
       />
-
-      {/* Mobile toggle */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed left-4 top-4 z-50 md:hidden"
-        onClick={() => setMobileOpen(!mobileOpen)}
-        aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-      >
-        {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </Button>
 
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out",
-          collapsed ? "w-[68px]" : "w-60",
-          "max-md:-translate-x-full max-md:w-60",
-          mobileOpen && "max-md:translate-x-0",
+          "fixed left-0 top-0 z-40 flex h-dvh flex-col border-r border-border/60 bg-sidebar transition-all duration-300 ease-in-out",
+          collapsed ? "md:w-[68px]" : "md:w-60",
+          "max-md:w-[280px] max-md:-translate-x-full",
+          mobileOpen && "max-md:translate-x-0 max-md:shadow-2xl",
         )}
       >
         {/* Logo */}
         <div className={cn(
-          "flex h-14 items-center shrink-0",
+          "flex h-14 items-center shrink-0 border-b border-border/30",
           collapsed ? "justify-center px-2" : "justify-between px-4"
         )}>
           {!collapsed ? (
             <>
               <Link href="/finance/dashboard" className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-extrabold">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground text-sm font-extrabold shadow-sm">
                   F
                 </div>
                 <span className="text-base font-bold tracking-tight">Fluxo</span>
               </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-foreground hidden md:flex"
-                onClick={toggleCollapsed}
-                aria-label="Collapse sidebar"
-              >
-                <ChevronsLeft className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                {/* Close button on mobile */}
+                <button
+                  onClick={() => onMobileOpenChange(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground md:hidden"
+                  aria-label="Close navigation"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hidden md:flex"
+                  onClick={toggleCollapsed}
+                  aria-label="Collapse sidebar"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+              </div>
             </>
           ) : (
-            <Link href="/finance/dashboard" className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-extrabold">
+            <Link href="/finance/dashboard" className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground text-sm font-extrabold shadow-sm">
               F
             </Link>
           )}
         </div>
 
         {/* Scrollable nav */}
-        <nav className="flex-1 overflow-y-auto px-2.5 py-3">
-          <div className="space-y-0.5">
+        <nav className="flex-1 overflow-y-auto overscroll-contain px-2.5 py-4">
+          <div className="space-y-1">
             {orderedModules.map(renderModuleItem)}
           </div>
         </nav>
 
         {/* Footer */}
         <div className={cn(
-          "shrink-0 border-t border-sidebar-border",
-          collapsed ? "p-2 space-y-1" : "p-3 space-y-2"
+          "shrink-0 border-t border-border/30",
+          collapsed ? "p-2 space-y-1.5" : "p-3 space-y-2"
         )}>
           {/* Exchange rate */}
           {!collapsed ? (
-            <div className="flex items-center justify-between rounded-lg bg-muted/60 px-3 py-1.5">
+            <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2">
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-semibold text-muted-foreground">EUR/ALL</span>
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">EUR/ALL</span>
                 <span className="text-xs font-bold tabular-nums">{exchangeRate.rate.toFixed(2)}</span>
               </div>
               <div className="flex items-center gap-0.5">
@@ -229,7 +230,7 @@ export function Sidebar({
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center justify-center rounded-lg bg-muted/60 py-1.5 text-[10px] font-bold tabular-nums">
+                <div className="flex items-center justify-center rounded-xl bg-muted/50 py-2 text-[10px] font-bold tabular-nums">
                   {exchangeRate.rate.toFixed(0)}
                 </div>
               </TooltipTrigger>
@@ -237,12 +238,11 @@ export function Sidebar({
             </Tooltip>
           )}
 
-
           {/* Logout */}
           {!collapsed ? (
             <button
               onClick={logout}
-              className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors w-full"
+              className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/8 transition-all duration-200 w-full"
             >
               <LogOut className="h-4 w-4" />
               Logout
@@ -252,7 +252,7 @@ export function Sidebar({
               <TooltipTrigger asChild>
                 <button
                   onClick={logout}
-                  className="flex h-10 w-full items-center justify-center rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                  className="flex h-10 w-full items-center justify-center rounded-xl text-red-500 hover:bg-red-500/8 transition-all duration-200"
                   aria-label="Sign out"
                 >
                   <LogOut className="h-4 w-4" />
@@ -269,7 +269,7 @@ export function Sidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-full text-muted-foreground hover:text-foreground hidden md:flex"
+                  className="h-8 w-full rounded-xl text-muted-foreground hover:text-foreground hidden md:flex"
                   onClick={toggleCollapsed}
                   aria-label="Expand sidebar"
                 >

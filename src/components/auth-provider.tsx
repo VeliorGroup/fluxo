@@ -12,11 +12,14 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
+type OAuthProvider = "google" | "apple" | "azure";
+
 type AuthContextType = {
   isAuthenticated: boolean;
   username: string | null;
   user: User | null;
   login: (username: string, password: string) => Promise<string | null>;
+  loginWithOAuth: (provider: OAuthProvider) => Promise<string | null>;
   logout: () => void;
 };
 
@@ -78,6 +81,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const loginWithOAuth = useCallback(
+    async (provider: OAuthProvider): Promise<string | null> => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/finance/dashboard`,
+        },
+      });
+      if (error) return error.message;
+      return null;
+    },
+    []
+  );
+
   const logout = useCallback(() => {
     supabase.auth.signOut();
     router.replace("/");
@@ -89,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, username, user, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, username, user, login, loginWithOAuth, logout }}>
       {children}
     </AuthContext.Provider>
   );
