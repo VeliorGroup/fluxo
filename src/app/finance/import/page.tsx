@@ -121,7 +121,8 @@ export default function ImportStatementPage() {
   }, [file, companies]);
 
   const handleImport = useCallback(async () => {
-    if (!result || !user || !selectedCompanyId) return;
+    if (!result || !user) return;
+    if (accountType === "business" && !selectedCompanyId) return;
     setImporting(true);
 
     try {
@@ -146,7 +147,7 @@ export default function ImportStatementPage() {
             .from("financial_accounts")
             .insert({
               user_id: user.id,
-              company_id: selectedCompanyId,
+              company_id: selectedCompanyId || null,
               name: result.accountName,
               currency: result.currency,
               type: "bank",
@@ -209,7 +210,7 @@ export default function ImportStatementPage() {
 
           return {
             user_id: user.id,
-            company_id: selectedCompanyId,
+            company_id: selectedCompanyId || null,
             account_id: accountId,
             date: tx.date,
             description: tx.description,
@@ -366,21 +367,23 @@ export default function ImportStatementPage() {
                     <p className="text-xs text-muted-foreground mt-0.5">{result.iban}</p>
                   )}
                 </div>
-                <div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                    Company
-                  </p>
-                  <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companies.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {accountType === "business" && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                      Company
+                    </p>
+                    <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -469,7 +472,7 @@ export default function ImportStatementPage() {
               </p>
               <Button
                 onClick={handleImport}
-                disabled={importing || !selectedCompanyId || importedCount !== null}
+                disabled={importing || (accountType === "business" && !selectedCompanyId) || importedCount !== null}
                 size="lg"
               >
                 {importing ? (
