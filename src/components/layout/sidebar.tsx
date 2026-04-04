@@ -166,25 +166,14 @@ export function Sidebar({
                 </div>
                 <span className="text-base font-bold tracking-tight">Fluxo</span>
               </Link>
-              <div className="flex items-center gap-1">
-                {/* Close button on mobile */}
-                <button
-                  onClick={() => onMobileOpenChange(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground md:hidden"
-                  aria-label="Close navigation"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hidden md:flex"
-                  onClick={toggleCollapsed}
-                  aria-label="Collapse sidebar"
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-              </div>
+              {/* Close button on mobile */}
+              <button
+                onClick={() => onMobileOpenChange(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground md:hidden"
+                aria-label="Close navigation"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </>
           ) : (
             <Link href="/finance/dashboard" className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground text-sm font-extrabold shadow-sm">
@@ -240,13 +229,24 @@ export function Sidebar({
 
           {/* Logout */}
           {!collapsed ? (
-            <button
-              onClick={logout}
-              className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/8 transition-all duration-200 w-full"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </button>
+            <>
+              <button
+                onClick={logout}
+                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/8 transition-all duration-200 w-full"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+              <Button
+                variant="ghost"
+                className="hidden md:flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground w-full justify-start h-auto"
+                onClick={toggleCollapsed}
+                aria-label="Collapse sidebar"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+                Collapse
+              </Button>
+            </>
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
