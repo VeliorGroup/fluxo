@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   ChevronLeft,
   ChevronRight,
-  CalendarRange,
   TrendingUp,
   TrendingDown,
   ArrowDownLeft,
@@ -151,8 +150,7 @@ export default function CalendarPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
-            <CalendarRange className="h-6 w-6 text-primary" />
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
             Financial Calendar
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">

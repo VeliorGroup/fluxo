@@ -114,7 +114,7 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Reports & Analytics</h1>
-        <p className="text-muted-foreground">Business insights and performance metrics</p>
+        <p className="mt-1 text-sm text-muted-foreground">Business insights and performance metrics</p>
       </div>
 
       <Tabs defaultValue="revenue">

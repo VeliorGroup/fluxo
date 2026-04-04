@@ -31,6 +31,7 @@ import { formatCurrencyFull } from "@/lib/types";
 type ParsedTransaction = {
   date: string;
   description: string;
+  reference: string | null;
   debit: number | null;
   credit: number | null;
   balance: number | null;
@@ -57,6 +58,12 @@ export default function ImportStatementPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState("new");
   const [importedCount, setImportedCount] = useState<number | null>(null);
+  const [accountType, setAccountType] = useState<"business" | "personal">("business");
+
+  // Filter accounts based on selected type
+  const filteredAccounts = existingAccounts.filter((a) =>
+    accountType === "personal" ? a.is_personal : !a.is_personal
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -96,6 +103,16 @@ export default function ImportStatementPage() {
       if (companies.length === 1) {
         setSelectedCompanyId(companies[0].id);
       }
+
+      // Auto-select existing account if name+currency matches
+      const matchingAccount = existingAccounts.find(
+        (a) => a.name === data.accountName && a.currency === data.currency
+      );
+      if (matchingAccount) {
+        setSelectedAccountId(matchingAccount.id);
+      } else {
+        setSelectedAccountId("new");
+      }
     } catch {
       setError("Failed to parse PDF. Make sure it's a valid bank statement.");
     } finally {
@@ -110,34 +127,50 @@ export default function ImportStatementPage() {
     try {
       let accountId = selectedAccountId;
 
-      // Create new account if needed
+      // Find or create account
       if (accountId === "new") {
-        const { data: newAcc, error: accErr } = await supabase
+        // First check if account with same name+currency+is_personal already exists
+        const { data: existingAcc } = await supabase
           .from("financial_accounts")
-          .insert({
-            user_id: user.id,
-            company_id: selectedCompanyId,
-            name: result.accountName,
-            currency: result.currency,
-            type: "bank",
-            balance: 0,
-          })
           .select("id")
-          .single();
+          .eq("user_id", user.id)
+          .eq("name", result.accountName)
+          .eq("currency", result.currency)
+          .eq("is_personal", accountType === "personal")
+          .maybeSingle();
 
-        if (accErr) throw new Error(accErr.message);
-        accountId = newAcc.id;
+        if (existingAcc) {
+          accountId = existingAcc.id;
+        } else {
+          const { data: newAcc, error: accErr } = await supabase
+            .from("financial_accounts")
+            .insert({
+              user_id: user.id,
+              company_id: selectedCompanyId,
+              name: result.accountName,
+              currency: result.currency,
+              type: "bank",
+              balance: 0,
+              is_personal: accountType === "personal",
+            })
+            .select("id")
+            .single();
+
+          if (accErr) throw new Error(accErr.message);
+          accountId = newAcc.id;
+        }
       }
 
-      // Get existing transactions for this account to avoid duplicates
-      const { data: existing } = await supabase
+      // Get existing bank_references for this account to detect duplicates
+      const { data: existingRefs } = await supabase
         .from("transactions")
-        .select("date, amount, description")
+        .select("bank_reference")
         .eq("user_id", user.id)
-        .eq("account_id", accountId);
+        .eq("account_id", accountId)
+        .not("bank_reference", "is", null);
 
-      const existingSet = new Set(
-        (existing ?? []).map((t) => `${t.date}|${t.amount}|${t.description?.substring(0, 30)}`)
+      const existingRefSet = new Set(
+        (existingRefs ?? []).map((t) => t.bank_reference)
       );
 
       // Get all transfer transactions from OTHER accounts (to detect cross-account movements)
@@ -152,12 +185,14 @@ export default function ImportStatementPage() {
         (otherTransfers ?? []).map((t) => `${t.date}|${Math.abs(Number(t.amount))}`)
       );
 
-      // Prepare new transactions (skip duplicates)
+      // Prepare transactions: skip ones with existing bank_reference
       const newTxs = result.transactions
         .filter((tx) => {
-          const amount = tx.credit ?? tx.debit ?? 0;
-          const key = `${tx.date}|${amount}|${tx.description?.substring(0, 30)}`;
-          return !existingSet.has(key);
+          // If this transaction has a reference and it already exists, skip it
+          if (tx.reference && existingRefSet.has(tx.reference)) {
+            return false;
+          }
+          return true;
         })
         .map((tx) => {
           const amount = tx.credit ?? tx.debit ?? 0;
@@ -178,11 +213,14 @@ export default function ImportStatementPage() {
             account_id: accountId,
             date: tx.date,
             description: tx.description,
+            bank_reference: tx.reference,
             amount,
             type: tx.credit ? "income" : "expense",
             status: "paid",
-            category,
+            category: accountType === "personal" ? "personal_withdrawal" : category,
             currency: result.currency,
+            source_type: accountType,
+            recurrence: "one_time",
           };
         });
 
@@ -193,12 +231,32 @@ export default function ImportStatementPage() {
         return;
       }
 
-      // Insert in batches of 50
+      // Upsert in batches of 50 — on conflict of bank_reference+account_id, update the row
       let imported = 0;
       for (let i = 0; i < newTxs.length; i += 50) {
         const batch = newTxs.slice(i, i + 50);
-        const { error: insertErr } = await supabase.from("transactions").insert(batch);
-        if (insertErr) throw new Error(insertErr.message);
+
+        // Split: transactions WITH reference use upsert, WITHOUT reference use insert
+        const withRef = batch.filter((t) => t.bank_reference);
+        const withoutRef = batch.filter((t) => !t.bank_reference);
+
+        if (withRef.length > 0) {
+          const { error: upsertErr } = await supabase
+            .from("transactions")
+            .upsert(withRef, {
+              onConflict: "bank_reference,account_id",
+              ignoreDuplicates: true,
+            });
+          if (upsertErr) throw new Error(upsertErr.message);
+        }
+
+        if (withoutRef.length > 0) {
+          const { error: insertErr } = await supabase
+            .from("transactions")
+            .insert(withoutRef);
+          if (insertErr) throw new Error(insertErr.message);
+        }
+
         imported += batch.length;
       }
 
@@ -214,7 +272,7 @@ export default function ImportStatementPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Import Statement</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Import Statement</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Upload a bank statement PDF to import transactions automatically.
         </p>
@@ -325,25 +383,41 @@ export default function ImportStatementPage() {
                 </div>
               </div>
 
-              <div>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                  Import to Account
-                </p>
-                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">
-                      + Create new: {result.accountName}
-                    </SelectItem>
-                    {existingAccounts
-                      .filter((a) => a.currency === result.currency)
-                      .map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    Account Type
+                  </p>
+                  <Select value={accountType} onValueChange={(v) => { setAccountType(v as "business" | "personal"); setSelectedAccountId("new"); }}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="business">Business Account</SelectItem>
+                      <SelectItem value="personal">Personal Account</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    Import to Account
+                  </p>
+                  <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">
+                        + Create new: {result.accountName}
+                      </SelectItem>
+                      {filteredAccounts
+                        .filter((a) => a.currency === result.currency)
+                        .map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

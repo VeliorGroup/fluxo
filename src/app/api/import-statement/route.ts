@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 type ParsedTx = {
   date: string;
   description: string;
+  reference: string | null;
   debit: number | null;
   credit: number | null;
   balance: number | null;
@@ -100,6 +101,10 @@ function parseStatement(text: string) {
       j++;
     }
 
+    // Extract bank reference code (e.g. 505OEBA260050018, 505SRDA260050501)
+    const refMatch = fullBlock.match(/\b(505[A-Z]{4}\d{9,}[A-Z0-9]*)\b/);
+    const reference = refMatch ? refMatch[1] : null;
+
     // Extract description (first line, after date, before numbers)
     const afterDate = line.substring(dateMatch[0].length);
     const firstNumPos = afterDate.search(/\s[\d,]+\.\d{2}/);
@@ -178,7 +183,7 @@ function parseStatement(text: string) {
     }
 
     if (debit || credit) {
-      transactions.push({ date: parsedDate, description, debit, credit, balance });
+      transactions.push({ date: parsedDate, description, reference, debit, credit, balance });
     }
 
     i = j;

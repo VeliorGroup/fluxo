@@ -49,6 +49,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 type ParsedTransaction = {
   date: string;
   description: string;
+  reference: string | null;
   debit: number | null;
   credit: number | null;
   balance: number | null;
@@ -172,23 +173,24 @@ export default function PersonalAccountsPage() {
     if (!parseResult || !user || !importAccountId) return;
     setImporting(true);
     try {
-      const { data: existing } = await supabase
+      // Get existing bank_references for this account
+      const { data: existingRefs } = await supabase
         .from("transactions")
-        .select("date, amount, description")
+        .select("bank_reference")
         .eq("user_id", user.id)
-        .eq("account_id", importAccountId);
+        .eq("account_id", importAccountId)
+        .not("bank_reference", "is", null);
 
-      const existingSet = new Set(
-        (existing ?? []).map((t) => `${t.date}|${t.amount}|${t.description?.substring(0, 30)}`)
+      const existingRefSet = new Set(
+        (existingRefs ?? []).map((t) => t.bank_reference)
       );
 
       const acct = rawAccounts.find((a) => a.id === importAccountId);
 
       const newTxs = parseResult.transactions
         .filter((tx) => {
-          const amount = tx.credit ?? tx.debit ?? 0;
-          const key = `${tx.date}|${amount}|${tx.description?.substring(0, 30)}`;
-          return !existingSet.has(key);
+          if (tx.reference && existingRefSet.has(tx.reference)) return false;
+          return true;
         })
         .map((tx) => {
           const amount = tx.credit ?? tx.debit ?? 0;
@@ -198,6 +200,7 @@ export default function PersonalAccountsPage() {
             account_id: importAccountId,
             date: tx.date,
             description: tx.description,
+            bank_reference: tx.reference,
             amount,
             type: tx.credit ? "income" : "expense",
             status: "paid",
@@ -218,8 +221,19 @@ export default function PersonalAccountsPage() {
       let imported = 0;
       for (let i = 0; i < newTxs.length; i += 50) {
         const batch = newTxs.slice(i, i + 50);
-        const { error: insertErr } = await supabase.from("transactions").insert(batch);
-        if (insertErr) throw new Error(insertErr.message);
+        const withRef = batch.filter((t) => t.bank_reference);
+        const withoutRef = batch.filter((t) => !t.bank_reference);
+
+        if (withRef.length > 0) {
+          const { error: upsertErr } = await supabase
+            .from("transactions")
+            .upsert(withRef, { onConflict: "bank_reference,account_id", ignoreDuplicates: true });
+          if (upsertErr) throw new Error(upsertErr.message);
+        }
+        if (withoutRef.length > 0) {
+          const { error: insertErr } = await supabase.from("transactions").insert(withoutRef);
+          if (insertErr) throw new Error(insertErr.message);
+        }
         imported += batch.length;
       }
       setImportedCount(imported);
@@ -256,8 +270,7 @@ export default function PersonalAccountsPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
-            <User className="h-6 w-6 text-violet-500" />
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
             Personal Accounts
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">

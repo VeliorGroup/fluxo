@@ -57,7 +57,7 @@ export default function PayrollPage() {
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
           Payroll & Tax Planner
         </h1>
-        <p className="mt-1 text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground">
           Manage employee compensation and track tax contribution deadlines.
         </p>
       </div>

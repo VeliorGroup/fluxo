@@ -130,6 +130,7 @@ export type Transaction = {
   recurrence?: TransactionRecurrence;
   source_type?: TransactionSourceType;
   transfer_id?: string;
+  bank_reference?: string;
   company_id?: string;
   account_id?: string;
   company_name?: string;

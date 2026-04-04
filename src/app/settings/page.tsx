@@ -79,7 +79,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Manage your preferences</p>
+        <p className="mt-1 text-sm text-muted-foreground">Manage your preferences</p>
       </div>
 
       <Tabs defaultValue="general">

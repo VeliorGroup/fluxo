@@ -44,7 +44,7 @@ export default function CommunicationsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Activity Feed</h1>
-          <p className="text-muted-foreground">Track all communications and interactions</p>
+          <p className="mt-1 text-sm text-muted-foreground">Track all communications and interactions</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
